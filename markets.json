@@ -1,0 +1,18 @@
+{
+  "gf-ll": {
+    "question": "WIll Leon get a girlfriend in 2025",
+    "outcomes": [
+      "YES",
+      "NO"
+    ],
+    "subject": null,
+    "creator": 270009321939664897,
+    "b": 100,
+    "shares": {
+      "YES": 0,
+      "NO": 0
+    },
+    "resolved": false,
+    "resolution": null
+  }
+}

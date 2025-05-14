@@ -2,6 +2,8 @@ import os
 from typing import Optional
 import discord
 from discord import app_commands
+from discord.ui import View, button
+from discord import ButtonStyle
 from dotenv import load_dotenv
 import storage
 
@@ -37,6 +39,39 @@ bot = PredictionBot()
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
+
+
+# Confirmation view for deleting markets
+class DeleteConfirmView(View):
+    def __init__(self, market_id: str):
+        # timeout=None → buttons never expire
+        super().__init__(timeout=None)
+        self.market_id = market_id
+
+    @button(label="Confirm", style=ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button):
+        if interaction.user.id != ADMIN_ID:
+            return await interaction.response.send_message(
+                "❌ No permission.", ephemeral=True
+            )
+
+        try:
+            storage.delete_market(self.market_id)
+            await interaction.response.edit_message(
+                content=f"✅ Market `{self.market_id}` deleted.",
+                view=None
+            )
+        except ValueError as e:
+            await interaction.response.edit_message(
+                content=f"❌ {e}", view=None
+            )
+
+    @button(label="Cancel", style=ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button):
+        await interaction.response.edit_message(
+            content="❌ Deletion canceled.",
+            view=None
+        )
 
 
 # Slash commands
@@ -103,6 +138,36 @@ async def list_markets(interaction: discord.Interaction):
     lines = [f"• **{mid}**: {data['question']}" for mid, data in markets.items()]
     msg = "__**Active Markets:**__\n" + "\n".join(lines)
     await interaction.response.send_message(msg, ephemeral=True)
+
+# /delete_market
+@bot.tree.command(
+    name="delete_market",
+    description="Admin: delete an existing market (two-step confirmation)"
+)
+@app_commands.describe(
+    id="The ID of the market to delete"
+)
+async def delete_market(interaction: discord.Interaction, id: str):
+    # Admin guard
+    if interaction.user.id != ADMIN_ID:
+        await interaction.response.send_message("❌ No permission.", ephemeral=True)
+        return
+
+    # Check existence
+    if id not in storage.load_markets():
+        await interaction.response.send_message(
+            f"❌ Market `{id}` not found.",
+            ephemeral=True
+        )
+        return
+
+    # Send the confirmation buttons (never expire)
+    view = DeleteConfirmView(market_id=id)
+    await interaction.response.send_message(
+        f"⚠️ Are you sure you want to delete market `{id}`?",
+        ephemeral=True,
+        view=view
+    )
 
 
 # Run the bot

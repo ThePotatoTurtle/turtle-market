@@ -58,3 +58,13 @@ def create_market(
     save_markets(markets)
     return market_id
 
+
+def delete_market(market_id: str) -> None:
+    """
+    Delete an existing market. Raises ValueError if the market_id does not exist.
+    """
+    markets = load_markets()
+    if market_id not in markets:
+        raise ValueError(f"Market ID '{market_id}' does not exist")
+    del markets[market_id]
+    save_markets(markets)

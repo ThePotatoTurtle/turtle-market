@@ -1,6 +1,10 @@
 import json
 import os
 
+# Default LMSR b-parameter for markets (can be overridden per market)
+# Use a float for slash-command defaults.
+DEFAULT_B = 25.0
+
 # Path to the JSON file storing markets
 MARKETS_FILE = os.path.join(os.path.dirname(__file__), 'markets.json')
 
@@ -28,7 +32,8 @@ def create_market(
     outcomes=('YES', 'NO'),
     subject=None,
     creator_id=None,
-    b=100
+    b=DEFAULT_B,
+    resolution_date=None
 ) -> str:
     """
     Create a new binary market with the given public market_id and parameters.
@@ -47,7 +52,9 @@ def create_market(
         'b': b,
         'shares': {outcome: 0 for outcome in outcomes},
         'resolved': False,
-        'resolution': None
+        'resolution': None,
+        'resolution_date': resolution_date  # e.g. 'YYYY-MM-DD'
     }
     save_markets(markets)
     return market_id
+

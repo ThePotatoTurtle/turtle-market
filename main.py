@@ -1,16 +1,19 @@
 import os
+from typing import Optional
 import discord
 from discord import app_commands
 from dotenv import load_dotenv
 import storage
 
-# 1) Load .env
+
+# Load .env
 load_dotenv()
 DEV_GUILD_ID = int(os.getenv("DEV_GUILD_ID", 0))
-ADMIN_ID    = int(os.getenv("ADMIN_ID",    0))
+ADMIN_ID    = int(os.getenv("ADMIN_ID", 0))
 TOKEN       = os.getenv("DISCORD_TOKEN")
 
-# 2) Bot subclass
+
+# Bot subclass
 class PredictionBot(discord.Client):
     def __init__(self):
         intents = discord.Intents.default()
@@ -25,38 +28,68 @@ class PredictionBot(discord.Client):
         else:
             await self.tree.sync()
 
-# 3) Instantiate the bot
+
+# Instantiate the bot
 bot = PredictionBot()
 
-# 4) Events
+
+# Events
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
-# 5) Slash commands (now that `bot` exists)
 
+# Slash commands
+
+# /create_market
 @bot.tree.command(
     name="create_market",
-    description="Admin: create a YES/NO market with a custom public ID"
+    description="Admin: create a YES/NO market with ID, subject, b-parameter, and resolution date"
 )
 @app_commands.describe(
     id="Unique ID for this market (e.g. EVENT2025)",
-    question="The question for this market"
+    question="The question for this market",
+    subject="Optional subject ID (to block self-bets)",
+    b=f"LMSR b-parameter (liquidity), default={storage.DEFAULT_B}",
+    resolution_date="Date for resolution (YYYY-MM-DD)"
 )
-async def create_market(interaction: discord.Interaction, id: str, question: str):
-    # Admin check
+async def create_market(
+    interaction: discord.Interaction,
+    id: str,
+    question: str,
+    subject: Optional[str] = None,
+    b: float = storage.DEFAULT_B,
+    resolution_date: Optional[str] = None
+):
+    # Admin guard
     if interaction.user.id != ADMIN_ID:
         await interaction.response.send_message("❌ No permission.", ephemeral=True)
         return
 
+    # Create the market
     try:
-        storage.create_market(market_id=id, question=question, creator_id=interaction.user.id)
+        storage.create_market(
+            market_id=id,
+            question=question,
+            subject=subject,
+            creator_id=interaction.user.id,
+            b=b,
+            resolution_date=resolution_date
+        )
     except ValueError as e:
         await interaction.response.send_message(f"❌ {e}", ephemeral=True)
         return
 
-    await interaction.response.send_message(f"🔔 Market `{id}` created!", ephemeral=True)
+    await interaction.response.send_message(
+        f"🔔 Market `{id}` created!\n"
+        f"Question: **{question}**\n"
+        f"Subject: `{subject}`\n"
+        f"b: `{b}`\n"
+        f"Resolution date: `{resolution_date}`",
+        ephemeral=True
+    )
 
+# /markets
 @bot.tree.command(
     name="markets",
     description="List all active markets"
@@ -71,7 +104,8 @@ async def list_markets(interaction: discord.Interaction):
     msg = "__**Active Markets:**__\n" + "\n".join(lines)
     await interaction.response.send_message(msg, ephemeral=True)
 
-# 6) Run the bot
+
+# Run the bot
 if __name__ == "__main__":
     bot.run(TOKEN)
 

@@ -1,12 +1,22 @@
 import json
 import os
 
-# Default LMSR b-parameter for markets (can be overridden per market)
-# Use a float for slash-command defaults.
+
+# Default settings. Use floats.
+DEFAULT_USER_BALANCE = 0.0
+POOL_ID = 'AMM'
+# Default LMSR b-parameter for markets
 DEFAULT_B = 25.0
 
+
 # Path to the JSON file storing markets
-MARKETS_FILE = os.path.join(os.path.dirname(__file__), 'markets.json')
+BASE = os.path.dirname(__file__)
+MARKETS_FILE = os.path.join(BASE, 'markets.json')
+BALANCES_FILE = os.path.join(BASE, 'user_balances.json')
+BETS_FILE = os.path.join(BASE, 'user_bets.json')
+
+
+# Storage helpers - Markets
 
 def load_markets():
     """
@@ -17,14 +27,12 @@ def load_markets():
     with open(MARKETS_FILE, 'r') as f:
         return json.load(f)
 
-
 def save_markets(markets):
     """
     Persist the given markets dict to the JSON file.
     """
     with open(MARKETS_FILE, 'w') as f:
         json.dump(markets, f, indent=2)
-
 
 def create_market(
     market_id: str,
@@ -58,7 +66,6 @@ def create_market(
     save_markets(markets)
     return market_id
 
-
 def delete_market(market_id: str) -> None:
     """
     Delete an existing market. Raises ValueError if the market_id does not exist.
@@ -68,3 +75,64 @@ def delete_market(market_id: str) -> None:
         raise ValueError(f"Market ID '{market_id}' does not exist")
     del markets[market_id]
     save_markets(markets)
+
+
+# Storage helpers - Balances
+
+def load_balances():
+    if not os.path.exists(BALANCES_FILE):
+        return {}
+    with open(BALANCES_FILE, 'r') as f:
+        return json.load(f)
+
+def save_balances(balances):
+    with open(BALANCES_FILE, 'w') as f:
+        json.dump(balances, f, indent=2)
+
+def ensure_balance(user_id: str):
+    balances = load_balances()
+    if user_id not in balances:
+        # AMM pool starts at 0, real users get default
+        balances[user_id] = 0.0 if user_id == POOL_ID else DEFAULT_USER_BALANCE
+        save_balances(balances)
+    return balances[user_id]
+
+def get_balance(user_id: str) -> float:
+    bal = load_balances()
+    return ensure_balance(user_id)
+
+def update_balance(user_id: str, delta: float):
+    """
+    Add delta to user_id’s balance (and initialize if missing).
+    """
+    balances = load_balances()
+
+    # Initialize missing users (pool or real user) in this same dict
+    if user_id not in balances:
+        balances[user_id] = (
+            0.0 if user_id == POOL_ID 
+            else DEFAULT_USER_BALANCE
+        )
+
+    balances[user_id] += delta
+    save_balances(balances)
+
+
+# Storage helpers - Bets
+
+def load_bets():
+    if not os.path.exists(BETS_FILE):
+        return {}
+    with open(BETS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_bets(bets):
+    with open(BETS_FILE, 'w') as f:
+        json.dump(bets, f, indent=2)
+
+def add_bet(user_id: str, market_id: str, outcome: str, shares: float):
+    bets = load_bets()
+    user = bets.setdefault(user_id, {})
+    pos  = user.setdefault(market_id, {'YES': 0.0, 'NO': 0.0})
+    pos[outcome] += shares
+    save_bets(bets)

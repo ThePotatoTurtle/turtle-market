@@ -1,11 +1,11 @@
 import os
-from typing import Optional
+from typing import Optional, Literal
 import discord
 from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import storage
+import storage, lmsr, storage
 
 
 # Load .env
@@ -13,6 +13,9 @@ load_dotenv()
 DEV_GUILD_ID = int(os.getenv("DEV_GUILD_ID", 0))
 ADMIN_ID    = int(os.getenv("ADMIN_ID", 0))
 TOKEN       = os.getenv("DISCORD_TOKEN")
+
+# Load variables
+POOL_ID = storage.POOL_ID
 
 
 # Bot subclass
@@ -41,11 +44,11 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
 
-# Confirmation view for deleting markets
+# Confirmation view for /delete_market
 class DeleteConfirmView(View):
     def __init__(self, market_id: str):
         # timeout=None → buttons never expire
-        super().__init__(timeout=None)
+        super().__init__(timeout=60)
         self.market_id = market_id
 
     @button(label="Confirm", style=ButtonStyle.danger)
@@ -72,6 +75,56 @@ class DeleteConfirmView(View):
             content="❌ Deletion canceled.",
             view=None
         )
+
+
+# Confirmation view for /buy
+class BuyConfirmView(View):
+    def __init__(self, user_id, market_id, outcome, amount, shares, price):
+        super().__init__(timeout=60)
+        self.user_id   = user_id
+        self.market_id = market_id
+        self.outcome   = outcome
+        self.amount    = amount
+        self.shares    = shares
+        self.price     = price
+
+    @button(label="Confirm", style=ButtonStyle.primary)
+    async def confirm(self, interaction, button):
+        if str(interaction.user.id) != self.user_id:
+            return await interaction.response.send_message("❌ Not your order.", ephemeral=True)
+
+        # Deduct user, credit pool
+        storage.update_balance(self.user_id, -self.amount)
+        storage.update_balance(POOL_ID, self.amount)
+
+        # Record in user portfolio
+        storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares)
+
+        # Update market totals
+        markets = storage.load_markets()
+        markets[self.market_id]['shares'][self.outcome] += self.shares
+        storage.save_markets(markets)
+
+        profit = (self.shares - self.amount)
+        pct    = (profit / self.amount) * 100 if self.amount else 0
+
+        await interaction.response.edit_message(
+            content=(
+                f"✅ Bought {self.shares:.4f} `{self.outcome}` shares in `{self.market_id}`\n"
+                f"Average price: ${self.price:.4f}/share\n"
+                f"Spent: ${self.amount:.2f}\n"
+                f"Potential profit: ${profit:.2f} ({pct:.1f}%)\n"
+                f"New balance: ${storage.get_balance(self.user_id):.2f}"
+            ),
+            view=None
+        )
+
+    @button(label="Cancel", style=ButtonStyle.secondary)
+    async def cancel(self, interaction, button):
+        await interaction.response.edit_message(
+            content="❌ Buy order canceled.", view=None
+        )
+
 
 
 # Slash commands
@@ -161,10 +214,62 @@ async def delete_market(interaction: discord.Interaction, id: str):
         )
         return
 
-    # Send the confirmation buttons (never expire)
+    # Send the confirmation buttons
     view = DeleteConfirmView(market_id=id)
     await interaction.response.send_message(
-        f"⚠️ Are you sure you want to delete market `{id}`?",
+        content=(
+            f"⚠️ Are you sure you want to delete market `{id}`?\n"
+            f"*(Times out in 60 seconds)*"
+        ),
+        ephemeral=True,
+        view=view
+    )
+
+
+# /buy
+@bot.tree.command(
+    name="buy",
+    description="Buy Y or N shares by specifying a dollar amount"
+)
+@app_commands.describe(
+    id="Market ID to trade on",
+    side="Y or N",
+    amount="Dollar amount you wish to spend (input number without $ symbol)"
+)
+async def buy(interaction, id: str, side: Literal["Y","N"], amount: float):
+    user_id = str(interaction.user.id)
+    side = side.upper()
+    outcome = "YES" if side == "Y" else "NO"
+
+    # --- Market & balance checks (same as before) ---
+    markets = storage.load_markets()
+    if id not in markets:
+        return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
+    m = markets[id]
+    if m.get("resolved"):
+        return await interaction.response.send_message(f"❌ Market `{id}` is resolved.", ephemeral=True)
+
+    bal = storage.get_balance(user_id)
+    if amount <= 0 or amount > bal:
+        return await interaction.response.send_message(f"❌ Invalid amount. You have ${bal:.2f}.", ephemeral=True)
+
+    # --- LMSR math ---
+    qy, qn, b = m['shares']['YES'], m['shares']['NO'], m['b']
+    shares = lmsr.calc_shares(amount, qy, qn, b, outcome)
+    price  = (amount / shares)
+    
+    profit = (shares - amount)
+    pct = (profit / amount) * 100 if amount else 0
+
+    view = BuyConfirmView(user_id, id, outcome, amount, shares, price)
+    await interaction.response.send_message(
+        content=(
+            f"⚙️ With **${amount:.2f}**, you can buy **{shares:.4f} `{outcome}`** shares\n"
+            f"Average price: **${price:.4f}**/share\n"
+            f"Potential profit: **+${profit:.2f} ({pct:.1f}%)**\n"
+            f"Click **Confirm** or **Cancel**\n"
+            f"*(Times out in 60 seconds)*\n\n"
+        ),
         ephemeral=True,
         view=view
     )

@@ -1,12 +1,6 @@
 import json
 import os
-
-
-# Default settings. Use floats.
-DEFAULT_USER_BALANCE = 0.0
-POOL_ID = 'AMM'
-# Default LMSR b-parameter for markets
-DEFAULT_B = 25.0
+import config
 
 
 # Path to the JSON file storing markets
@@ -40,7 +34,7 @@ def create_market(
     outcomes=('YES', 'NO'),
     subject=None,
     creator_id=None,
-    b=DEFAULT_B,
+    b=config.DEFAULT_B,
     resolution_date=None
 ) -> str:
     """
@@ -93,7 +87,7 @@ def ensure_balance(user_id: str):
     balances = load_balances()
     if user_id not in balances:
         # AMM pool starts at 0, real users get default
-        balances[user_id] = 0.0 if user_id == POOL_ID else DEFAULT_USER_BALANCE
+        balances[user_id] = 0.0 if user_id == config.POOL_ID else config.DEFAULT_USER_BALANCE
         save_balances(balances)
     return balances[user_id]
 
@@ -110,8 +104,8 @@ def update_balance(user_id: str, delta: float):
     # Initialize missing users (pool or real user) in this same dict
     if user_id not in balances:
         balances[user_id] = (
-            0.0 if user_id == POOL_ID 
-            else DEFAULT_USER_BALANCE
+            0.0 if user_id == config.POOL_ID 
+            else config.DEFAULT_USER_BALANCE
         )
 
     balances[user_id] += delta

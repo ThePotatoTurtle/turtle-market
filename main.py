@@ -5,17 +5,14 @@ from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import storage, lmsr, storage
+import storage, lmsr, config
 
 
 # Load .env
 load_dotenv()
 DEV_GUILD_ID = int(os.getenv("DEV_GUILD_ID", 0))
-ADMIN_ID    = int(os.getenv("ADMIN_ID", 0))
-TOKEN       = os.getenv("DISCORD_TOKEN")
-
-# Load variables
-POOL_ID = storage.POOL_ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 
 # Bot subclass
@@ -95,7 +92,7 @@ class BuyConfirmView(View):
 
         # Deduct user, credit pool
         storage.update_balance(self.user_id, -self.amount)
-        storage.update_balance(POOL_ID, self.amount)
+        storage.update_balance(config.POOL_ID, self.amount)
 
         # Record in user portfolio
         storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares)
@@ -138,7 +135,7 @@ class BuyConfirmView(View):
     id="Unique ID for this market (e.g. EVENT2025)",
     question="The question for this market",
     subject="Optional subject ID (to block self-bets)",
-    b=f"LMSR b-parameter (liquidity), default={storage.DEFAULT_B}",
+    b=f"LMSR b-parameter (liquidity), default={config.DEFAULT_B}",
     resolution_date="Date for resolution (YYYY-MM-DD)"
 )
 async def create_market(
@@ -146,7 +143,7 @@ async def create_market(
     id: str,
     question: str,
     subject: Optional[str] = None,
-    b: float = storage.DEFAULT_B,
+    b: float = config.DEFAULT_B,
     resolution_date: Optional[str] = None
 ):
     # Admin guard

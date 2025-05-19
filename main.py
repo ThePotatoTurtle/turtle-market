@@ -102,16 +102,16 @@ class BuyConfirmView(View):
         markets[self.market_id]['shares'][self.outcome] += self.shares
         storage.save_markets(markets)
 
-        profit = (self.shares - self.amount)
-        pct    = (profit / self.amount) * 100 if self.amount else 0
+        profit_after_fee = (self.shares - self.amount)*(1-config.REDEEM_FEE)
+        pct    = (profit_after_fee / self.amount)*100 if self.amount else 0
 
         await interaction.response.edit_message(
             content=(
-                f"✅ Bought {self.shares:.4f} `{self.outcome}` shares in `{self.market_id}`\n"
-                f"Average price: ${self.price:.4f}/share\n"
-                f"Spent: ${self.amount:.2f}\n"
-                f"Potential profit: ${profit:.2f} ({pct:.1f}%)\n"
-                f"New balance: ${storage.get_balance(self.user_id):.2f}"
+                f"✅ Bought **{self.shares:.4f}** **`{self.outcome}`** shares in **`{self.market_id}`**\n"
+                f"Average price: **${self.price:.4f}**/share\n"
+                f"Spent: **${self.amount:.2f}**\n"
+                f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
+                f"New balance: **${storage.get_balance(self.user_id):.2f}**"
             ),
             view=None
         )
@@ -255,16 +255,16 @@ async def buy(interaction, id: str, side: Literal["Y","N"], amount: float):
     shares = lmsr.calc_shares(amount, qy, qn, b, outcome)
     price  = (amount / shares)
     
-    profit = (shares - amount)
-    pct = (profit / amount) * 100 if amount else 0
+    profit_after_fee = (shares - amount)*(1-config.REDEEM_FEE)
+    pct = (profit_after_fee / amount) * 100 if amount else 0
 
     view = BuyConfirmView(user_id, id, outcome, amount, shares, price)
     await interaction.response.send_message(
         content=(
-            f"⚙️ With **${amount:.2f}**, you can buy **{shares:.4f} `{outcome}`** shares\n"
+            f"💹 With **${amount:.2f}**, you can buy **{shares:.4f}** **`{outcome}`** shares\n"
             f"Average price: **${price:.4f}**/share\n"
-            f"Potential profit: **+${profit:.2f} ({pct:.1f}%)**\n"
-            f"Click **Confirm** or **Cancel**\n"
+            f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
+            f"Click `Confirm` or `Cancel`\n"
             f"*(Times out in 60 seconds)*\n\n"
         ),
         ephemeral=True,
@@ -275,4 +275,3 @@ async def buy(interaction, id: str, side: Literal["Y","N"], amount: float):
 # Run the bot
 if __name__ == "__main__":
     bot.run(TOKEN)
-

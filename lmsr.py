@@ -3,20 +3,27 @@ import math
 
 def lmsr_cost(q_yes: float, q_no: float, b: float) -> float:
     """
-    LMSR cost function for binary outcomes:
-    C(q_yes, q_no) = b * log(e^(q_yes/b) + e^(q_no/b))
+    Stable LMSR cost function for binary outcomes:
+    C(q_yes, q_no) = b * log(e^(q_yes/b) + e^(q_no/b)), computed via log-sum-exp for numerical stability.
     """
-    return b * math.log(math.exp(q_yes / b) + math.exp(q_no / b))
+    x = q_yes / b
+    y = q_no / b
+    m = max(x, y)
+    # log-sum-exp: log(e^x + e^y) = m + log(e^(x-m) + e^(y-m))
+    return b * (m + math.log(math.exp(x - m) + math.exp(y - m)))
 
 
 def lmsr_price(q_yes: float, q_no: float, b: float) -> float:
     """
-    Implied probability (price) for the YES outcome:
+    Stable implied probability (price) for the YES outcome via softmax.
     p_yes = e^(q_yes/b) / (e^(q_yes/b) + e^(q_no/b))
     """
-    exp_yes = math.exp(q_yes / b)
-    exp_no = math.exp(q_no / b)
-    return exp_yes / (exp_yes + exp_no)
+    x = q_yes / b
+    y = q_no / b
+    m = max(x, y)
+    ex = math.exp(x - m)
+    ey = math.exp(y - m)
+    return ex / (ex + ey)
 
 
 def calc_shares(delta_cash: float, q_yes: float, q_no: float, b: float,
@@ -25,7 +32,7 @@ def calc_shares(delta_cash: float, q_yes: float, q_no: float, b: float,
     Given a cash amount (delta_cash) to spend on 'YES' or 'NO',
     compute the number of shares (delta_q) such that:
       C(q + delta_q) - C(q) = delta_cash
-    Uses binary search on delta_q.
+    Uses binary search on delta_q with stable cost computation.
 
     Parameters:
     - delta_cash: amount of money to spend
@@ -37,8 +44,8 @@ def calc_shares(delta_cash: float, q_yes: float, q_no: float, b: float,
     current_cost = lmsr_cost(q_yes, q_no, b)
     target = current_cost + delta_cash
 
-    # Establish search bounds
-    low, high = 0.0, max(delta_cash * b, 1.0)
+    # Establish initial search bounds
+    low, high = 0.0, max(delta_cash / b * b, 1.0)
     # Expand high bound until cost(high) >= target
     while True:
         if side.upper() == 'YES':
@@ -66,4 +73,3 @@ def calc_shares(delta_cash: float, q_yes: float, q_no: float, b: float,
 
     # Return approximation if tol not met
     return (low + high) / 2
-

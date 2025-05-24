@@ -261,7 +261,6 @@ async def delete_market(interaction: discord.Interaction, id: str):
         view=view
     )
 
-
 # /buy
 @bot.tree.command(
     name="buy",
@@ -308,6 +307,19 @@ async def buy(interaction, id: str, side: Literal["Y","N"], amount: float):
         ),
         ephemeral=True,
         view=view
+    )
+
+# /cash
+@bot.tree.command(
+    name="cash",
+    description="Check your current cash balance"
+)
+async def cash(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+    balance = storage.get_balance(user_id)
+    await interaction.response.send_message(
+        content=f"💰 Your cash balance is **${balance:.2f}**",
+        ephemeral=True
     )
 
 

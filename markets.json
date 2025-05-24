@@ -17,24 +17,6 @@
     "resolution_date": "2025-12-31",
     "implied_odds": 0.13472980712924756
   },
-  "delete": {
-    "question": "test",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 25.0,
-    "shares": {
-      "YES": 117.09868013858795,
-      "NO": 100.04907608032227
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": null,
-    "implied_odds": 0.66418139790697
-  },
   "testtest": {
     "question": "Will this test work?",
     "outcomes": [
@@ -52,5 +34,41 @@
     "resolution": null,
     "resolution_date": null,
     "implied_odds": 0.3113542683666046
+  },
+  "test2": {
+    "question": "test",
+    "outcomes": [
+      "YES",
+      "NO"
+    ],
+    "subject": null,
+    "creator": 270009321939664897,
+    "b": 25.0,
+    "shares": {
+      "YES": 10099.587855935097,
+      "NO": 10117.32868035324
+    },
+    "resolved": false,
+    "resolution": null,
+    "resolution_date": null,
+    "implied_odds": 0.32967994398953976
+  },
+  "test3": {
+    "question": "test",
+    "outcomes": [
+      "YES",
+      "NO"
+    ],
+    "subject": null,
+    "creator": 270009321939664897,
+    "b": 25.0,
+    "shares": {
+      "YES": 117.09868013858795,
+      "NO": 0
+    },
+    "resolved": false,
+    "resolution": null,
+    "resolution_date": null,
+    "implied_odds": 0.9908421808735536
   }
 }

@@ -225,7 +225,7 @@ async def list_markets(interaction: discord.Interaction):
         return
 
     lines = [f"• **{mid}**: {data['question']}" for mid, data in markets.items()]
-    msg = "__**Active Markets:**__\n" + "\n".join(lines)
+    msg = "**Active Markets:**\n" + "\n".join(lines)
     await interaction.response.send_message(msg, ephemeral=True)
 
 # /delete_market
@@ -319,6 +319,68 @@ async def cash(interaction: discord.Interaction):
     balance = storage.get_balance(user_id)
     await interaction.response.send_message(
         content=f"💰 Your cash balance is **${balance:.2f}**",
+        ephemeral=True
+    )
+
+# /port
+@bot.tree.command(
+    name="port",
+    description="View your portfolio including cash and all open bets"
+)
+async def port(interaction: discord.Interaction):
+    user_id = str(interaction.user.id)
+
+    # Cash balance
+    balance = storage.get_balance(user_id)
+
+    # Load user bets and markets
+    all_bets = storage.load_bets().get(user_id, {})
+    markets  = storage.load_markets()
+
+    # Compute total bet value and build lines
+    total_bets_value = 0.0
+    lines = []
+    for mid, pos in all_bets.items():
+        market = markets.get(mid)
+        # Skip missing or resolved markets
+        if not market or market.get("resolved"):
+            continue
+
+        # Current marginal price for YES
+        qy = market["shares"]["YES"]
+        qn = market["shares"]["NO"]
+        b  = market["b"]
+        p_yes = lmsr.lmsr_price(qy, qn, b)
+
+        # For each side owned
+        for outcome, shares in pos.items():
+            if shares <= 0:
+                continue
+            # Choose price per share
+            price = p_yes if outcome == "YES" else (1 - p_yes)
+            value = shares * price
+            total_bets_value += value
+            side_label = "YES" if outcome == "YES" else "NO"
+            lines.append(
+                f"• **{mid}** | {side_label} | {shares:.4f} shrs | ${value:.2f}"
+            )
+
+    # Totals
+    total_portfolio = balance + total_bets_value
+    header = (
+        f"💰 Cash: **${balance:.2f}**\n"
+        f"📈 Open Bets: **${total_bets_value:.2f}**\n"
+        f"🔖 Total Portfolio: **${total_portfolio:.2f}**"
+    )
+
+    # Build response
+    if not lines:
+        body = "You have no open bets."
+    else:
+        body = "**Open Bets:**\n" + "\n".join(lines)
+
+    await interaction.response.send_message(
+        content=f"{header}\n\n{body}",
         ephemeral=True
     )
 

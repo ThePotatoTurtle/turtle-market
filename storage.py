@@ -55,7 +55,8 @@ def create_market(
         'shares': {outcome: 0 for outcome in outcomes},
         'resolved': False,
         'resolution': None,
-        'resolution_date': resolution_date  # e.g. 'YYYY-MM-DD'
+        'resolution_date': resolution_date,  # 'YYYY-MM-DD'
+        'implied_odds': 50.00
     }
     save_markets(markets)
     return market_id

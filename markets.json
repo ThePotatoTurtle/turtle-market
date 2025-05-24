@@ -1,121 +1,20 @@
 {
   "test": {
-    "question": "test?",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": "3131",
-    "creator": 270009321939664897,
-    "b": 100.0,
-    "shares": {
-      "YES": 307.1589134633541,
-      "NO": 256.49032881483436
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": "2025-12-31"
-  },
-  "test2": {
     "question": "test",
     "outcomes": [
       "YES",
       "NO"
     ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 25.0,
-    "shares": {
-      "YES": 0,
-      "NO": 0
-    },
-    "resolved": true,
-    "resolution": null,
-    "resolution_date": null
-  },
-  "b100": {
-    "question": "b100",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
+    "subject": "270009321939664897",
     "creator": 270009321939664897,
     "b": 100.0,
     "shares": {
-      "YES": 0,
-      "NO": 0
+      "YES": 262.3081251978874,
+      "NO": 149.36499881744385
     },
     "resolved": false,
     "resolution": null,
-    "resolution_date": null
-  },
-  "b200": {
-    "question": "b200",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 200.0,
-    "shares": {
-      "YES": 630.2477326244116,
-      "NO": 0
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": null
-  },
-  "b50": {
-    "question": "b50",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 50.0,
-    "shares": {
-      "YES": 0,
-      "NO": 0
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": null
-  },
-  "b25": {
-    "question": "b25",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 25.0,
-    "shares": {
-      "YES": 367.32866894453764,
-      "NO": 466.86654328368604
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": null
-  },
-  "test50": {
-    "question": "test50",
-    "outcomes": [
-      "YES",
-      "NO"
-    ],
-    "subject": null,
-    "creator": 270009321939664897,
-    "b": 50.0,
-    "shares": {
-      "YES": 0,
-      "NO": 0
-    },
-    "resolved": false,
-    "resolution": null,
-    "resolution_date": null
+    "resolution_date": "2025-12-31",
+    "implied_odds": 0.8524174462306597
   }
 }

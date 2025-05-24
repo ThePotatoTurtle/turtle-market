@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import storage, lmsr, config
+import storage, lmsr, config, transactions
 
 
 # Load .env
@@ -38,6 +38,11 @@ bot = PredictionBot()
 # Events
 @bot.event
 async def on_ready():
+    # Init all logs
+    await transactions.init_trades_db()
+    await transactions.init_resolved_db()
+    await transactions.init_transfers_db()
+
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
 
@@ -90,18 +95,31 @@ class BuyConfirmView(View):
         if str(interaction.user.id) != self.user_id:
             return await interaction.response.send_message("❌ Not your order.", ephemeral=True)
 
-        # Deduct user, credit pool
+        # Update user_balances.json and user_bets.json
         storage.update_balance(self.user_id, -self.amount)
         storage.update_balance(config.POOL_ID, self.amount)
-
-        # Record in user portfolio
         storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares)
 
-        # Update market totals
+        # Derive implied odds for YES
+        implied_odds = self.price if self.outcome=="YES" else 1-self.price
+
+        # Update markets.json
         markets = storage.load_markets()
         markets[self.market_id]['shares'][self.outcome] += self.shares
+        markets[self.market_id]["implied_odds"] = implied_odds
         storage.save_markets(markets)
 
+        # Log into trades.db
+        await transactions.log_trade(
+            user_id   = self.user_id,
+            market_id = self.market_id,
+            outcome   = self.outcome,
+            shares    = self.shares,   # positive for buy
+            amount    = self.amount,   # positive dollars spent
+            price     = self.price
+        )
+
+        # Compute profit & respond
         profit_after_fee = (self.shares - self.amount)*(1-config.REDEEM_FEE)
         pct    = (profit_after_fee / self.amount)*100 if self.amount else 0
 

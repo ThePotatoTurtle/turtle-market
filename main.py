@@ -165,7 +165,7 @@ class BuyConfirmView(View):
 
 # Slash commands
 
-# /create_market
+# /create_market (admin only)
 @bot.tree.command(
     name="create_market",
     description="Admin: create a YES/NO market with ID, subject, b-parameter, and resolution date"
@@ -228,7 +228,7 @@ async def list_markets(interaction: discord.Interaction):
     msg = "**Active Markets:**\n" + "\n".join(lines)
     await interaction.response.send_message(msg, ephemeral=True)
 
-# /delete_market
+# /delete_market (admin only)
 @bot.tree.command(
     name="delete_market",
     description="Admin: delete an existing market (two-step confirmation)"
@@ -381,6 +381,82 @@ async def port(interaction: discord.Interaction):
 
     await interaction.response.send_message(
         content=f"{header}\n\n{body}",
+        ephemeral=True
+    )
+
+# /deposit (admin only)
+@bot.tree.command(
+    name="deposit",
+    description="Admin: deposit cash into a user’s account"
+)
+@app_commands.describe(
+    user="The user to credit",
+    amount="Dollar amount to deposit"
+)
+async def deposit(
+    interaction: discord.Interaction,
+    user: discord.User,
+    amount: float
+):
+    # Admin guard
+    if interaction.user.id != ADMIN_ID:
+        return await interaction.response.send_message("❌ You don’t have permission.", ephemeral=True)
+    target_id = str(user.id)
+    # Update JSON balance
+    storage.update_balance(target_id, amount)
+    new_bal = storage.get_balance(target_id)
+    # Log in transfers.db
+    await transactions.log_transfer(
+        type="deposit",
+        from_user=None,
+        to_user=target_id,
+        amount=amount,
+        balance=new_bal
+    )
+    # Send confirmation
+    await interaction.response.send_message(
+        f"✅ Deposited **${amount:.2f}** to {user.mention}. New balance: **${new_bal:.2f}**",
+        ephemeral=True
+    )
+
+# /withdraw (admin only)
+@bot.tree.command(
+    name="withdraw",
+    description="Admin: withdraw cash from a user’s account"
+)
+@app_commands.describe(
+    user="The user to debit",
+    amount="Dollar amount to withdraw"
+)
+async def withdraw(
+    interaction: discord.Interaction,
+    user: discord.User,
+    amount: float
+):
+    # Admin guard; balance check
+    if interaction.user.id != ADMIN_ID:
+        return await interaction.response.send_message("❌ You don’t have permission.", ephemeral=True)
+    target_id = str(user.id)
+    current = storage.get_balance(target_id)
+    if amount > current:
+        return await interaction.response.send_message(
+            f"❌ Cannot withdraw ${amount:.2f}; user only has ${current:.2f}.",
+            ephemeral=True
+        )
+    # Update JSON balance
+    storage.update_balance(target_id, -amount)
+    new_bal = storage.get_balance(target_id)
+    # Log in transfers.db
+    await transactions.log_transfer(
+        type="withdrawal",
+        from_user=target_id,
+        to_user=None,
+        amount=amount,
+        balance=new_bal
+    )
+    # Send confirmation
+    await interaction.response.send_message(
+        f"✅ Withdrew **${amount:.2f}** from {user.mention}. New balance: **${new_bal:.2f}**",
         ephemeral=True
     )
 

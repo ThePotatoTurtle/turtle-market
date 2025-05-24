@@ -48,6 +48,7 @@ async def init_transfers_db():
                 from_user  TEXT,               -- NULL for deposit
                 to_user    TEXT,               -- NULL for withdrawal
                 amount     REAL    NOT NULL,
+                balance    REAL    NOT NULL,          
                 timestamp  DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -73,10 +74,10 @@ async def log_resolve(user_id: str, market_id: str, outcome: str, shares: float,
         )
         await db.commit()
 
-async def log_transfer(type: str, from_user: str, to_user: str, amount: float):
+async def log_transfer(type: str, from_user: str, to_user: str, amount: float, balance: float):
     async with aiosqlite.connect(TRANSFERS_DB) as db:
         await db.execute(
-            "INSERT INTO transfers (type, from_user, to_user, amount) VALUES (?, ?, ?, ?)",
-            (type, from_user, to_user, amount)
+            "INSERT INTO transfers (type, from_user, to_user, amount, balance) VALUES (?, ?, ?, ?, ?)",
+            (type, from_user, to_user, amount, balance)
         )
         await db.commit()

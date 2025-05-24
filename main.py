@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import storage, lmsr, config, transactions
+import storage, lmsr, config, transactions, broadcasts
 
 
 # Load .env
@@ -128,13 +128,25 @@ class BuyConfirmView(View):
             price     = self.price
         )
 
-        # Compute profit & respond
+        # Compute profit
         profit_after_fee = (self.shares - self.amount)*(1-config.REDEEM_FEE)
         pct    = (profit_after_fee / self.amount)*100 if self.amount else 0
 
+        # Broadcast the buy
+        await broadcasts.broadcast_trade(
+            client         = interaction.client,
+            market_id      = self.market_id,
+            market_name    = m["question"],
+            side           = "BUY",
+            outcome        = self.outcome,
+            shares         = self.shares,
+            amount         = self.amount,
+            implied_odds   = implied_odds
+        )
+
         await interaction.response.edit_message(
             content=(
-                f"✅ Bought **{self.shares:.4f}** **`{self.outcome}`** shares in **`{self.market_id}`**\n"
+                f"✅ Bought **{self.shares:.4f}** `{self.outcome}` shares in `{self.market_id}`\n"
                 f"Average price: **${self.price:.4f}**/share\n"
                 f"Spent: **${self.amount:.2f}**\n"
                 f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
@@ -288,7 +300,7 @@ async def buy(interaction, id: str, side: Literal["Y","N"], amount: float):
     view = BuyConfirmView(user_id, id, outcome, amount, shares, price)
     await interaction.response.send_message(
         content=(
-            f"💹 With **${amount:.2f}**, you can buy **{shares:.4f}** **`{outcome}`** shares\n"
+            f"💹 With **${amount:.2f}**, you can buy **{shares:.4f}** `{outcome}` shares\n"
             f"Average price: **${price:.4f}**/share\n"
             f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
             f"Click `Confirm` or `Cancel`\n"

@@ -103,10 +103,19 @@ class BuyConfirmView(View):
         # Derive implied odds for YES
         implied_odds = self.price if self.outcome=="YES" else 1-self.price
 
-        # Update markets.json
+        # Update markets.json with share counts
         markets = storage.load_markets()
-        markets[self.market_id]['shares'][self.outcome] += self.shares
-        markets[self.market_id]["implied_odds"] = implied_odds
+        m = markets[self.market_id]
+        m['shares'][self.outcome] += self.shares
+        
+        # Compute instantaneous LMSR price for YES
+        qy = m['shares']['YES']
+        qn = m['shares']['NO']
+        b  = m['b']
+        implied_odds = lmsr.lmsr_price(qy, qn, b)  # Always marginal price
+
+        # Update markets.json with implied odds
+        m["implied_odds"] = implied_odds
         storage.save_markets(markets)
 
         # Log into trades.db

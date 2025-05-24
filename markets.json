@@ -16,5 +16,23 @@
     "resolution": null,
     "resolution_date": "2025-12-31",
     "implied_odds": 0.8524174462306597
+  },
+  "delete": {
+    "question": "test",
+    "outcomes": [
+      "YES",
+      "NO"
+    ],
+    "subject": null,
+    "creator": 270009321939664897,
+    "b": 25.0,
+    "shares": {
+      "YES": 117.09868013858795,
+      "NO": 100.04907608032227
+    },
+    "resolved": false,
+    "resolution": null,
+    "resolution_date": null,
+    "implied_odds": 0.66418139790697
   }
 }

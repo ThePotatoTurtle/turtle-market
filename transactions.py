@@ -1,12 +1,17 @@
-import os
-import aiosqlite
+import os, aiosqlite
 
-BASE_DIR       = os.path.dirname(__file__)
-TRADES_DB      = os.path.join(BASE_DIR, "trades.db")
-RESOLVED_DB    = os.path.join(BASE_DIR, "resolved.db")
-TRANSFERS_DB   = os.path.join(BASE_DIR, "transfers.db")
+# Paths to the SQLite database files
+BASE = os.path.dirname(__file__)
+DB_DIR = os.path.join(BASE, 'database')
+os.makedirs(DB_DIR, exist_ok=True)  # Ensure the folder exists
+TRADES_DB      = os.path.join(DB_DIR, "trades.db")
+RESOLVED_DB    = os.path.join(DB_DIR, "resolutions.db")
+TRANSFERS_DB   = os.path.join(DB_DIR, "transfers.db")
 
-# ——— Initialization —————————————————————————————
+
+
+
+# Initialization
 
 async def init_trades_db():
     async with aiosqlite.connect(TRADES_DB) as db:
@@ -56,7 +61,7 @@ async def init_transfers_db():
         await db.commit()
 
 
-# ——— Logging functions —————————————————————————————
+# Logging functions
 
 async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, amount: float, price: float, balance: float):
     async with aiosqlite.connect(TRADES_DB) as db:

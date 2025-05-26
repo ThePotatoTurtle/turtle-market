@@ -1,5 +1,5 @@
 import discord
-import storage, config
+import config
 
 # Broadcast buys and sells to BROADCAST_CHANNEL_ID
 async def broadcast_trade(

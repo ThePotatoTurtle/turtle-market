@@ -9,13 +9,13 @@
     "creator": 270009321939664897,
     "b": 100.0,
     "shares": {
-      "YES": 689.8663222789764,
+      "YES": 11090.314717311412,
       "NO": 875.8433698415756
     },
     "resolved": false,
     "resolution": null,
     "resolution_date": "2025-12-31",
-    "implied_odds": 0.13472980712924756
+    "implied_odds": 1.0
   },
   "testtest": {
     "question": "Will this test work?",

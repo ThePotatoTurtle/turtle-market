@@ -119,13 +119,15 @@ class BuyConfirmView(View):
         storage.save_markets(markets)
 
         # Log into trades.db
+        balance = storage.get_balance(self.user_id)
         await transactions.log_trade(
             user_id   = self.user_id,
             market_id = self.market_id,
             outcome   = self.outcome,
             shares    = self.shares,   # positive for buy
             amount    = self.amount,   # positive dollars spent
-            price     = self.price
+            price     = self.price,
+            balance   = balance
         )
 
         # Compute profit

@@ -19,6 +19,7 @@ async def init_trades_db():
                 shares  REAL    NOT NULL,   -- + for buy, - for sell
                 amount  REAL    NOT NULL,   -- + spent to buy, - received from sell
                 price   REAL    NOT NULL,   -- average price = amount/shares
+                balance REAL    NOT NULL,   -- user balance after trade
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -57,12 +58,12 @@ async def init_transfers_db():
 
 # ——— Logging functions —————————————————————————————
 
-async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, amount: float, price: float):
+async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, amount: float, price: float, balance: float):
     async with aiosqlite.connect(TRADES_DB) as db:
         await db.execute(
-            "INSERT INTO trades (user_id, market_id, outcome, shares, amount, price) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, market_id, outcome, shares, amount, price)
+            "INSERT INTO trades (user_id, market_id, outcome, shares, amount, price, balance) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, market_id, outcome, shares, amount, price, balance)
         )
         await db.commit()
 

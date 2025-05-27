@@ -2,7 +2,7 @@ import os, aiosqlite
 
 # Paths to the SQLite database files
 BASE = os.path.dirname(__file__)
-DB_DIR = os.path.join(BASE, 'database')
+DB_DIR = os.path.join(BASE, 'data')
 os.makedirs(DB_DIR, exist_ok=True)  # Ensure the folder exists
 TRADES_DB      = os.path.join(DB_DIR, "trades.db")
 RESOLVED_DB    = os.path.join(DB_DIR, "resolutions.db")

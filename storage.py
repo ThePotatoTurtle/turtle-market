@@ -4,7 +4,7 @@ import config
 
 # Paths to the SQLite database files
 BASE = os.path.dirname(__file__)
-DB_DIR = os.path.join(BASE, 'database')
+DB_DIR = os.path.join(BASE, 'data')
 os.makedirs(DB_DIR, exist_ok=True)  # Ensure the folder exists
 MARKETS_DB  = os.path.join(DB_DIR, 'markets.db')
 BALANCES_DB = os.path.join(DB_DIR, 'user_balances.db')
@@ -19,13 +19,16 @@ def init_markets_db():
         CREATE TABLE IF NOT EXISTS markets (
             market_id        TEXT PRIMARY KEY,
             question         TEXT    NOT NULL,
+            details          TEXT,
             b                REAL    NOT NULL,
             subject          TEXT,
             creator_id       TEXT,
             resolved         INTEGER NOT NULL DEFAULT 0,
             resolution       TEXT,
             resolution_date  TEXT,
-            implied_odds     REAL    DEFAULT 0.5
+            implied_odds     REAL    DEFAULT 0.5,
+            last_trade_date  TEXT,
+            volume_traded    REAL    DEFAULT 0
         )
     """)
     c.execute("""
@@ -79,10 +82,10 @@ def create_market(
     market_id: str,
     question: str,
     outcomes=('YES', 'NO'),
+    details: Optional[str] = None,
     subject: Optional[str] = None,
     creator_id: Optional[str] = None,
     b: float = config.DEFAULT_B,
-    resolution_date: Optional[str] = None
 ) -> None:
     conn = sqlite3.connect(MARKETS_DB)
     c = conn.cursor()
@@ -93,9 +96,9 @@ def create_market(
         raise ValueError(f"Market ID '{market_id}' already exists")
 
     c.execute(
-        "INSERT INTO markets(market_id, question, b, subject, creator_id, resolution_date) "
+        "INSERT INTO markets(market_id, question, details, b, subject, creator_id) "
         "VALUES (?, ?, ?, ?, ?, ?)",
-        (market_id, question, b, subject, creator_id, resolution_date)
+        (market_id, question, details, b, subject, creator_id)
     )
     # Initialize share counts
     for o in outcomes:
@@ -123,6 +126,9 @@ def load_markets() -> Dict[str, Dict[str, Any]]:
             'resolution': row['resolution'],
             'resolution_date': row['resolution_date'],
             'implied_odds': row['implied_odds'],
+            'details': row['details'],
+            'last_trade_date': row['last_trade_date'],
+            'volume_traded': row['volume_traded'],
             'shares': {}
         }
 
@@ -141,11 +147,13 @@ def save_markets(markets: Dict[str, Dict[str, Any]]) -> None:
         c.execute(
             "UPDATE markets SET question=?, b=?, subject=?, creator_id=?, "
             "resolved=?, resolution=?, resolution_date=?, implied_odds=? "
+            "details=?, last_trade_date=?, volume_traded=? "
             "WHERE market_id=?",
             (
                 data['question'], data['b'], data['subject'], data['creator'],
                 int(data.get('resolved', False)), data.get('resolution'),
-                data.get('resolution_date'), data.get('implied_odds', 0.5), mid
+                data.get('resolution_date'), data.get('implied_odds', 0.5),
+                data.get('details'), data.get('last_trade_date'), data.get('volume_traded', 0), mid
             )
         )
         for outcome, sh in data['shares'].items():

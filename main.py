@@ -163,22 +163,22 @@ class BuyConfirmView(View):
 # /create_market (admin only)
 @bot.tree.command(
     name="create_market",
-    description="Admin: create a YES/NO market with ID, subject, b-parameter, and resolution date"
+    description="Admin: create a YES/NO market with ID, question, details, subject, and b-parameter"
 )
 @app_commands.describe(
     id="Unique ID for this market (e.g. EVENT2025)",
     question="The question for this market",
+    details="Details and conditions for the market",
     subject="Optional subject ID (to block self-bets)",
-    b=f"LMSR b-parameter (liquidity), default={config.DEFAULT_B}",
-    resolution_date="Date for resolution (YYYY-MM-DD)"
+    b=f"LMSR b-parameter (liquidity), default={config.DEFAULT_B}"
 )
 async def create_market(
     interaction: discord.Interaction,
     id: str,
     question: str,
+    details: Optional[str] = None,
     subject: Optional[str] = None,
-    b: float = config.DEFAULT_B,
-    resolution_date: Optional[str] = None
+    b: float = config.DEFAULT_B
 ):
     # Admin guard
     if interaction.user.id != ADMIN_ID:
@@ -189,11 +189,11 @@ async def create_market(
         storage.create_market(
             market_id      = id,
             question       = question,
+            details        = details,
             outcomes       = ['YES','NO'],
             subject        = subject,
             creator_id     = str(interaction.user.id),
-            b              = b,
-            resolution_date= resolution_date
+            b              = b
         )
     except ValueError as e:
         return await interaction.response.send_message(f"❌ {e}", ephemeral=True)
@@ -201,9 +201,9 @@ async def create_market(
     await interaction.response.send_message(
         f"🔔 Market `{id}` created!\n"
         f"Question: **{question}**\n"
+        f"Details: *{details}*\n"
         f"Subject: `{subject}`\n"
-        f"b: `{b}`\n"
-        f"Resolution date: `{resolution_date}`",
+        f"b: `{b}`",
         ephemeral=True
     )
 

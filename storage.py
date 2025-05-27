@@ -15,33 +15,35 @@ BETS_DB     = os.path.join(DB_DIR, 'user_bets.db')
 def init_markets_db():
     conn = sqlite3.connect(MARKETS_DB)
     c = conn.cursor()
+    # Static market info
     c.execute("""
-        CREATE TABLE IF NOT EXISTS markets (
-            market_id        TEXT PRIMARY KEY,
-            question         TEXT    NOT NULL,
-            details          TEXT,
-            b                REAL    NOT NULL,
-            subject          TEXT,
-            creator_id       TEXT,
-            resolved         INTEGER NOT NULL DEFAULT 0,
-            resolution       TEXT,
-            resolution_date  TEXT,
-            implied_odds     REAL    DEFAULT 0.5,
-            last_trade       DATETIME,
-            volume_traded    REAL    DEFAULT 0
+        CREATE TABLE IF NOT EXISTS market_info (
+            market_id   TEXT PRIMARY KEY,
+            question    TEXT NOT NULL,
+            details     TEXT,
+            b           REAL NOT NULL,
+            subject     TEXT,
+            creator_id  TEXT
         )
     """)
+    # Live market data
     c.execute("""
-        CREATE TABLE IF NOT EXISTS market_shares (
-            market_id TEXT    NOT NULL,
-            outcome   TEXT    NOT NULL,
-            shares    REAL    NOT NULL,
-            PRIMARY KEY(market_id, outcome),
-            FOREIGN KEY(market_id) REFERENCES markets(market_id)
+        CREATE TABLE IF NOT EXISTS market_data (
+            market_id       TEXT PRIMARY KEY,
+            yes_shares      REAL    NOT NULL DEFAULT 0,
+            no_shares       REAL    NOT NULL DEFAULT 0,
+            resolved        INTEGER NOT NULL DEFAULT 0,
+            resolution      TEXT,
+            resolution_date TEXT,
+            implied_odds    REAL    DEFAULT 0.5,
+            last_trade      DATETIME,
+            volume_traded   REAL    DEFAULT 0,
+            FOREIGN KEY(market_id) REFERENCES market_info(market_id)
         )
     """)
     conn.commit()
     conn.close()
+    
 
 def init_balances_db():
     conn = sqlite3.connect(BALANCES_DB)
@@ -85,27 +87,26 @@ def create_market(
     details: Optional[str] = None,
     subject: Optional[str] = None,
     creator_id: Optional[str] = None,
-    b: float = config.DEFAULT_B,
+    b: float = config.DEFAULT_B
 ) -> None:
     conn = sqlite3.connect(MARKETS_DB)
     c = conn.cursor()
     # Prevent duplicates
-    c.execute("SELECT 1 FROM markets WHERE market_id = ?", (market_id,))
+    c.execute("SELECT 1 FROM market_info WHERE market_id = ?", (market_id,))
     if c.fetchone():
         conn.close()
         raise ValueError(f"Market ID '{market_id}' already exists")
-
+    # Insert static info
     c.execute(
-        "INSERT INTO markets(market_id, question, details, b, subject, creator_id) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO market_info(market_id, question, details, b, subject, creator_id)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
         (market_id, question, details, b, subject, creator_id)
     )
-    # Initialize share counts
-    for o in outcomes:
-        c.execute(
-            "INSERT INTO market_shares(market_id, outcome, shares) VALUES (?, ?, 0)",
-            (market_id, o)
-        )
+    # Initialize live data
+    c.execute(
+        "INSERT INTO market_data(market_id) VALUES (?)",
+        (market_id,)
+    )
     conn.commit()
     conn.close()
 
@@ -113,30 +114,33 @@ def load_markets() -> Dict[str, Dict[str, Any]]:
     conn = sqlite3.connect(MARKETS_DB)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-
-    c.execute("SELECT * FROM markets")
+    # Join info and data
+    c.execute(
+        "SELECT i.market_id, i.question, i.details, i.b, i.subject, i.creator_id,"
+        " d.yes_shares, d.no_shares, d.resolved, d.resolution, d.resolution_date,"
+        " d.implied_odds, d.last_trade, d.volume_traded"
+        " FROM market_info i"
+        " JOIN market_data d ON i.market_id = d.market_id"
+    )
     markets: Dict[str, Dict[str, Any]] = {}
     for row in c.fetchall():
         markets[row['market_id']] = {
-            'question': row['question'],
-            'b': row['b'],
-            'subject': row['subject'],
-            'creator': row['creator_id'],
-            'resolved': bool(row['resolved']),
-            'resolution': row['resolution'],
+            'question':        row['question'],
+            'details':         row['details'],
+            'b':               row['b'],
+            'subject':         row['subject'],
+            'creator':         row['creator_id'],
+            'shares': {
+                'YES': row['yes_shares'],
+                'NO':  row['no_shares']
+            },
+            'resolved':        bool(row['resolved']),
+            'resolution':      row['resolution'],
             'resolution_date': row['resolution_date'],
-            'implied_odds': row['implied_odds'],
-            'details': row['details'],
-            'last_trade': row['last_trade'],
-            'volume_traded': row['volume_traded'],
-            'shares': {}
+            'implied_odds':    row['implied_odds'],
+            'last_trade':      row['last_trade'],
+            'volume_traded':   row['volume_traded']
         }
-
-    c.execute("SELECT market_id, outcome, shares FROM market_shares")
-    for mid, outcome, shares in c.fetchall():
-        if mid in markets:
-            markets[mid]['shares'][outcome] = shares
-
     conn.close()
     return markets
 
@@ -144,31 +148,34 @@ def save_markets(markets: Dict[str, Dict[str, Any]]) -> None:
     conn = sqlite3.connect(MARKETS_DB)
     c = conn.cursor()
     for mid, data in markets.items():
+        # Update static info
         c.execute(
-            "UPDATE markets SET question=?, b=?, subject=?, creator_id=?, "
-            "resolved=?, resolution=?, resolution_date=?, implied_odds=?, "
-            "details=?, last_trade=?, volume_traded=? "
-            "WHERE market_id=?",
+            "UPDATE market_info SET question=?, details=?, b=?, subject=?, creator_id=?"
+            " WHERE market_id=?",
             (
-                data['question'], data['b'], data['subject'], data['creator'],
-                int(data.get('resolved', False)), data.get('resolution'),
-                data.get('resolution_date'), data.get('implied_odds', 0.5),
-                data.get('details'), data.get('last_trade'), data.get('volume_traded', 0), mid
+                data['question'], data['details'], data['b'], data['subject'], data['creator'],
+                mid
             )
         )
-        for outcome, sh in data['shares'].items():
-            c.execute(
-                "UPDATE market_shares SET shares=? WHERE market_id=? AND outcome=?",
-                (sh, mid, outcome)
+        # Update live data
+        c.execute(
+            "UPDATE market_data SET yes_shares=?, no_shares=?, resolved=?, resolution=?,"
+            " resolution_date=?, implied_odds=?, last_trade=?, volume_traded=?"
+            " WHERE market_id=?",
+            (
+                data['shares']['YES'], data['shares']['NO'], int(data['resolved']),
+                data['resolution'], data['resolution_date'], data['implied_odds'],
+                data['last_trade'], data['volume_traded'], mid
             )
+        )
     conn.commit()
     conn.close()
 
 def delete_market(market_id: str) -> None:
     conn = sqlite3.connect(MARKETS_DB)
     c = conn.cursor()
-    c.execute("DELETE FROM market_shares WHERE market_id=?", (market_id,))
-    c.execute("DELETE FROM markets WHERE market_id=?", (market_id,))
+    c.execute("DELETE FROM market_data WHERE market_id=?", (market_id,))
+    c.execute("DELETE FROM market_info WHERE market_id=?", (market_id,))
     conn.commit()
     conn.close()
 
@@ -184,7 +191,7 @@ def get_balance(user_id: str) -> float:
     else:
         bal = config.DEFAULT_USER_BALANCE
         c.execute(
-            "INSERT INTO balances(user_id, balance) VALUES (?, ?)",
+            "INSERT INTO balances(user_id, balance) VALUES (?, ?)" ,
             (user_id, bal)
         )
         conn.commit()
@@ -211,10 +218,11 @@ def load_bets() -> Dict[str, Dict[str, float]]:
     bets: Dict[str, Dict[str, float]] = {}
     for user_id, mid, outcome, shares in c.fetchall():
         user = bets.setdefault(user_id, {})
-        pos = user.setdefault(mid, {'YES': 0.0, 'NO': 0.0})
+        pos  = user.setdefault(mid, {'YES': 0.0, 'NO': 0.0})
         pos[outcome] = shares
     conn.close()
     return bets
+
 
 def add_bet(user_id: str, market_id: str, outcome: str, delta_shares: float) -> None:
     bets = load_bets().get(user_id, {})
@@ -229,8 +237,7 @@ def add_bet(user_id: str, market_id: str, outcome: str, delta_shares: float) -> 
         )
     else:
         c.execute(
-            "INSERT OR REPLACE INTO bets(user_id, market_id, outcome, shares) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO bets(user_id, market_id, outcome, shares) VALUES (?, ?, ?, ?)",
             (user_id, market_id, outcome, new_val)
         )
     conn.commit()

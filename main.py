@@ -1,4 +1,4 @@
-import os
+import os, datetime
 from typing import Optional, Literal
 import discord
 from discord import app_commands
@@ -104,10 +104,14 @@ class BuyConfirmView(View):
         m = markets[self.market_id]
         m['shares'][self.outcome] += self.shares
 
-        # Compute new LMSR marginal price and record implied odds
+        # Compute new LMSR marginal price
         qy, qn, b = m['shares']['YES'], m['shares']['NO'], m['b']
         implied_yes = lmsr.lmsr_price(qy, qn, b)
+
+        # Record new implied odds, timestamp, and add to total volume traded
         m['implied_odds'] = implied_yes
+        m["last_trade"] = datetime.datetime.now(datetime.UTC).isoformat()
+        m["volume_traded"] = m.get("volume_traded", 0) + abs(self.amount)
         storage.save_markets(markets)
        
         # Log to trades.db

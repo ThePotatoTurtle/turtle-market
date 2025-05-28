@@ -1,4 +1,4 @@
-import os, sqlite3
+import os, sqlite3, datetime
 from typing import Dict, Any, Optional
 import config
 
@@ -62,10 +62,12 @@ def init_bets_db():
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS bets (
-            user_id   TEXT    NOT NULL,
-            market_id TEXT    NOT NULL,
-            outcome   TEXT    NOT NULL,
-            shares    REAL    NOT NULL,
+            user_id     TEXT    NOT NULL,
+            market_id   TEXT    NOT NULL,
+            outcome     TEXT    NOT NULL,
+            shares      REAL    NOT NULL,
+            cost_basis  REAL    DEFAULT 0,
+            last_trade  DATETIME,
             PRIMARY KEY(user_id, market_id, outcome)
         )
     """)
@@ -214,31 +216,46 @@ def update_balance(user_id: str, delta: float) -> None:
 def load_bets() -> Dict[str, Dict[str, float]]:
     conn = sqlite3.connect(BETS_DB)
     c = conn.cursor()
-    c.execute("SELECT user_id, market_id, outcome, shares FROM bets")
-    bets: Dict[str, Dict[str, float]] = {}
-    for user_id, mid, outcome, shares in c.fetchall():
+    c.execute("SELECT user_id, market_id, outcome, shares, cost_basis, last_trade FROM bets")
+    bets: Dict[str, Dict[str, dict]] = {}
+    for user_id, mid, outcome, shares, cost_basis, last_trade in c.fetchall():
         user = bets.setdefault(user_id, {})
-        pos  = user.setdefault(mid, {'YES': 0.0, 'NO': 0.0})
-        pos[outcome] = shares
+        pos  = user.setdefault(mid, {'YES': {}, 'NO': {}})
+        pos[outcome] = {
+            'shares': shares,
+            'cost_basis': cost_basis,
+            'last_trade': last_trade
+        }
     conn.close()
     return bets
 
-
-def add_bet(user_id: str, market_id: str, outcome: str, delta_shares: float) -> None:
+def add_bet(
+    user_id: str,
+    market_id: str,
+    outcome: str,
+    delta_shares: float,
+    delta_cost: float
+) -> None:
+    # Load current bet info
     bets = load_bets().get(user_id, {})
-    current = bets.get(market_id, {}).get(outcome, 0.0)
-    new_val = current + delta_shares
+    current_bet = bets.get(market_id, {}).get(outcome, {'shares': 0.0, 'cost_basis': 0.0})
+    current_shares = current_bet.get('shares', 0.0)
+    current_cost = current_bet.get('cost_basis', 0.0)
+    new_shares = current_shares + delta_shares
+    new_cost = current_cost + delta_cost
+    now = datetime.datetime.now(datetime.UTC).isoformat()
+
     conn = sqlite3.connect(BETS_DB)
     c = conn.cursor()
-    if new_val <= 0:
+    if new_shares <= 0:
         c.execute(
             "DELETE FROM bets WHERE user_id=? AND market_id=? AND outcome=?",
             (user_id, market_id, outcome)
         )
     else:
         c.execute(
-            "INSERT OR REPLACE INTO bets(user_id, market_id, outcome, shares) VALUES (?, ?, ?, ?)",
-            (user_id, market_id, outcome, new_val)
+            "INSERT OR REPLACE INTO bets(user_id, market_id, outcome, shares, cost_basis, last_trade) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, market_id, outcome, new_shares, new_cost, now)
         )
     conn.commit()
     conn.close()

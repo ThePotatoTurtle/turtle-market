@@ -97,7 +97,7 @@ class BuyConfirmView(View):
         # Update balances and portfolio
         storage.update_balance(self.user_id, -self.amount)
         storage.update_balance(config.POOL_ID, self.amount)
-        storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares)
+        storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares, self.amount)
 
         # Update market shares
         markets = storage.load_markets()
@@ -322,9 +322,10 @@ async def port(interaction: discord.Interaction):
         # Current marginal price for YES
         p_yes=lmsr.lmsr_price(m['shares']['YES'],m['shares']['NO'],m['b'])
         # For each position owned:
-        for outcome, shares in pos.items():
+        for outcome, data in pos.items():
+            shares = data.get('shares', 0)
             if shares <= 0:
-                continue
+                continue    
             # Calculate current values of each position and append to open bets
             price = p_yes if outcome == "YES" else (1 - p_yes)
             value = shares * price

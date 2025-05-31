@@ -38,13 +38,9 @@ bot = PredictionBot()
 # Events
 @bot.event
 async def on_ready():
-    # Initialize databases
+    # Initialize unified database
     await data.init_db()
-    # Init transaction logs
-    await data.init_trades_db()
-    await data.init_resolved_db()
-    await data.init_transfers_db()
-
+    # Log in message
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
 
@@ -225,7 +221,7 @@ async def list_markets(interaction: discord.Interaction):
             lines.append(f"• **{mid}**: {market['question']} | {odds:.1f}%")
     if not lines:
         return await interaction.response.send_message("No active markets.", ephemeral=True)
-    await interaction.response.send_message("Active Markets:\n" + "\n".join(lines), ephemeral=True)
+    await interaction.response.send_message("🏦 Active Markets:\n" + "\n".join(lines), ephemeral=True)
 
 # /delete_market (admin only)
 @bot.tree.command(

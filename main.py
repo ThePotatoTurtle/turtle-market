@@ -5,7 +5,7 @@ from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import storage, lmsr, config, transactions, broadcasts
+import config, lmsr, data, broadcasts
 
 
 # Load .env
@@ -39,11 +39,11 @@ bot = PredictionBot()
 @bot.event
 async def on_ready():
     # Initialize databases
-    storage.init_db()
+    await data.init_db()
     # Init transaction logs
-    await transactions.init_trades_db()
-    await transactions.init_resolved_db()
-    await transactions.init_transfers_db()
+    await data.init_trades_db()
+    await data.init_resolved_db()
+    await data.init_transfers_db()
 
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
@@ -61,7 +61,7 @@ class DeleteConfirmView(View):
             return await interaction.response.send_message("❌ No permission.", ephemeral=True)
 
         try:
-            storage.delete_market(self.market_id)
+            await data.delete_market(self.market_id)
             await interaction.response.edit_message(
                 content=f"✅ Market `{self.market_id}` deleted.",
                 view=None
@@ -95,12 +95,12 @@ class BuyConfirmView(View):
             return await interaction.response.send_message("❌ Not your order", ephemeral=True)
 
         # Update balances and portfolio
-        storage.update_balance(self.user_id, -self.amount)
-        storage.update_balance(config.POOL_ID, self.amount)
-        storage.add_bet(self.user_id, self.market_id, self.outcome, self.shares, self.amount)
+        await data.update_balance(self.user_id, -self.amount)
+        await data.update_balance(config.POOL_ID, self.amount)
+        await data.add_bet(self.user_id, self.market_id, self.outcome, self.shares, self.amount)
 
         # Update market shares
-        markets = storage.load_markets()
+        markets = await data.load_markets()
         m = markets[self.market_id]
         m['shares'][self.outcome] += self.shares
 
@@ -112,11 +112,11 @@ class BuyConfirmView(View):
         m['implied_odds'] = implied_yes
         m["last_trade"] = datetime.datetime.now(datetime.UTC).isoformat()
         m["volume_traded"] = m.get("volume_traded", 0) + abs(self.amount)
-        storage.save_markets(markets)
+        await data.save_markets(markets)
        
         # Log to trades.db
-        balance = storage.get_balance(self.user_id)
-        await transactions.log_trade(
+        balance = await data.get_balance(self.user_id)
+        await data.log_trade(
             user_id   = self.user_id,
             market_id = self.market_id,
             outcome   = self.outcome,
@@ -149,7 +149,7 @@ class BuyConfirmView(View):
                 f"Average price: **${self.price:.4f}**/share\n"
                 f"Spent: **${self.amount:.2f}**\n"
                 f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
-                f"New balance: **${storage.get_balance(self.user_id):.2f}**"
+                f"New balance: **${await data.get_balance(self.user_id):.2f}**"
             ),
             view=None
         )
@@ -190,7 +190,7 @@ async def create_market(
 
     # Create the market
     try:
-        storage.create_market(
+        await data.create_market(
             market_id      = id,
             question       = question,
             details        = details,
@@ -217,12 +217,12 @@ async def create_market(
     description="List all active markets"
 )
 async def list_markets(interaction: discord.Interaction):
-    markets = storage.load_markets()
+    markets = await data.load_markets()
     lines = []
-    for mid,data in markets.items():
-        if not data['resolved']:
-            odds = data['implied_odds']*100
-            lines.append(f"• **{mid}**: {data['question']} | {odds:.1f}%")
+    for mid,market in markets.items():
+        if not market['resolved']:
+            odds = market['implied_odds']*100
+            lines.append(f"• **{mid}**: {market['question']} | {odds:.1f}%")
     if not lines:
         return await interaction.response.send_message("No active markets.", ephemeral=True)
     await interaction.response.send_message("Active Markets:\n" + "\n".join(lines), ephemeral=True)
@@ -238,7 +238,7 @@ async def delete_market(interaction: discord.Interaction, id: str):
     if interaction.user.id != ADMIN_ID:
         return await interaction.response.send_message("❌ No permission.", ephemeral=True)
     # Check existence
-    if id not in storage.load_markets():
+    if id not in await data.load_markets():
         return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
     # Send the confirmation buttons
     view = DeleteConfirmView(market_id=id)
@@ -265,12 +265,13 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     outcome = "YES" if side.upper()=="Y" else "NO"
 
     # Market & balance checks
-    m = storage.load_markets().get(id)
+    m_dict = await data.load_markets()
+    m = m_dict.get(id)
     if not m:
         return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
     if m['resolved']:
         return await interaction.response.send_message(f"❌ Market `{id}` is resolved.", ephemeral=True)
-    bal = storage.get_balance(user_id)
+    bal = await data.get_balance(user_id)
     if amount<=0 or amount>bal:
         return await interaction.response.send_message(f"❌ Invalid amount. You have ${bal:.2f}.", ephemeral=True)
     
@@ -294,10 +295,10 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
         ephemeral=True, view=view
     )
 
-# /cash
-@bot.tree.command(name="cash", description="Check your cash balance")
-async def cash(interaction: discord.Interaction):
-    bal = storage.get_balance(str(interaction.user.id))
+# /bal
+@bot.tree.command(name="bal", description="Check your cash balance")
+async def bal(interaction: discord.Interaction):
+    bal = await data.get_balance(str(interaction.user.id))
     await interaction.response.send_message(
         content=f"💰 Your cash balance is **${bal:.2f}**", ephemeral=True
     )
@@ -309,9 +310,10 @@ async def cash(interaction: discord.Interaction):
 )
 async def port(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
-    bal = storage.get_balance(user_id)
-    bets = storage.load_bets().get(user_id,{})
-    markets = storage.load_markets()
+    bal = await data.get_balance(user_id)
+    bets_dict = await data.load_bets()
+    bets = bets_dict.get(user_id, {})
+    markets = await data.load_markets()
 
     # Compute total bet value and build lines, skip missing or resolved markets
     total_bet_val=0
@@ -322,8 +324,8 @@ async def port(interaction: discord.Interaction):
         # Current marginal price for YES
         p_yes=lmsr.lmsr_price(m['shares']['YES'],m['shares']['NO'],m['b'])
         # For each position owned:
-        for outcome, data in pos.items():
-            shares = data.get('shares', 0)
+        for outcome, market in pos.items():
+            shares = market.get('shares', 0)
             if shares <= 0:
                 continue    
             # Calculate current values of each position and append to open bets
@@ -372,10 +374,10 @@ async def deposit(
         return await interaction.response.send_message("❌ No permission.", ephemeral=True)
     # Update balances
     target_id = str(user.id)
-    storage.update_balance(target_id, amount)
-    new_bal = storage.get_balance(target_id)
+    await data.update_balance(target_id, amount)
+    new_bal = await data.get_balance(target_id)
     # Log in transfers.db
-    await transactions.log_transfer(
+    await data.log_transfer(
         type="deposit",
         from_user=None,
         to_user=target_id,
@@ -406,17 +408,17 @@ async def withdraw(
     if interaction.user.id != ADMIN_ID:
         return await interaction.response.send_message("❌ You don’t have permission.", ephemeral=True)
     target_id = str(user.id)
-    current = storage.get_balance(target_id)
+    current = await data.get_balance(target_id)
     if amount > current:
         return await interaction.response.send_message(
             f"❌ Cannot withdraw ${amount:.2f}; user only has ${current:.2f}.",
             ephemeral=True
         )
     # Update balance
-    storage.update_balance(target_id, -amount)
-    new_bal = storage.get_balance(target_id)
+    await data.update_balance(target_id, -amount)
+    new_bal = await data.get_balance(target_id)
     # Log in transfers.db
-    await transactions.log_transfer(
+    await data.log_transfer(
         type="withdrawal",
         from_user=target_id,
         to_user=None,

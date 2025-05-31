@@ -23,10 +23,11 @@ async def broadcast_trade(
     # Format the message
     verb = "BOUGHT" if side == "BUY" else "SOLD"
     emoji = "📈" if side == "BUY" else "📉"
+    odds_change = "⬇️" if (side == "BUY" and outcome == "NO") or (side == "SELL" and outcome == "YES") else "⬆️"
     text = (
         f"{emoji} `{market_id}`: {market_name}\n"
-        f"Somebody just {verb} **{shares:.4f}** `{outcome}` shares for **${amount:.2f}**\n"
-        f"Current implied odds: **{implied_odds*100:.2f}%**"
+        f"New trade: **{shares:.4f}** `{outcome}` shares {verb} for **${amount:.2f}**\n"
+        f"Current implied odds: **{implied_odds*100:.2f}%** {odds_change}"
     )
 
     # Send it publicly

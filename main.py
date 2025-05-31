@@ -166,7 +166,7 @@ class BuyConfirmView(View):
     description="Admin: create a YES/NO market with ID, question, details, subject, and b-parameter"
 )
 @app_commands.describe(
-    id="Unique ID for this market (e.g. EVENT2025)",
+    id="Unique ID for this market",
     question="The question for this market",
     details="Details and conditions for the market",
     subject="Optional subject ID (to block self-bets)",
@@ -313,7 +313,10 @@ async def port(interaction: discord.Interaction):
 
     # Compute total bet value and build lines, skip missing or resolved markets
     total_bet_val=0
-    lines=[]
+    lines = [
+    "Market   | Side |   Shares   |    Value    |   Unrealiz. Profit",
+    "---------|------|------------|-------------|-------------"
+    ]
     for mid,pos in bets.items():
         m=markets.get(mid)
         if not m or m['resolved']: continue
@@ -327,11 +330,14 @@ async def port(interaction: discord.Interaction):
             # Calculate current values of each position and append to open bets
             price = p_yes if outcome == "YES" else (1 - p_yes)
             value = shares * price
+            cost_basis = market.get('cost_basis', 0)
+            profit = value - cost_basis
             total_bet_val += value
             side_label = "YES" if outcome == "YES" else "NO"
             lines.append(
-                f"• **{mid}** | {side_label} | {shares:.4f} shrs | ${value:.2f}"
+            f"{mid:<8} | {side_label:<4} | {shares:10.4f} | ${value:10.2f} | ${profit:10.2f}"
             )
+
     # Totals
     total = bal + total_bet_val
     # Header
@@ -344,10 +350,10 @@ async def port(interaction: discord.Interaction):
     if not lines:
         body = "You have no open bets."
     else:
-        body = "**Open Bets:**\n" + "\n".join(lines)
+        table = "```\n" + "\n".join(lines) + "\n```"
 
     await interaction.response.send_message(
-        content=f"{header}\n\n{body}",
+        content=f"{header}\n\nOpen Bets:\n{table}",
         ephemeral=True
     )
 

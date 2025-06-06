@@ -156,6 +156,63 @@ class BuyConfirmView(View):
             content="❌ Buy order canceled", view=None
         )
 
+# Confirmation view for /send
+class SendConfirmView(View):
+    def __init__(self, sender_id: str, recipient_id: str, amount: float):
+        super().__init__(timeout=60)
+        self.sender_id = sender_id
+        self.recipient_id = recipient_id
+        self.amount = amount
+
+    @button(label="Confirm", style=ButtonStyle.primary)
+    async def confirm(self, interaction: discord.Interaction, button):
+        # Only the original sender can confirm
+        if str(interaction.user.id) != self.sender_id:
+            return await interaction.response.send_message(
+                "❌ You are not authorized to confirm this transfer.",
+                ephemeral=True
+            )
+
+        # Fetch current balances one last time
+        sender_bal = await data.get_balance(self.sender_id)
+        if self.amount > sender_bal:
+            # If somehow balance changed since initial check
+            return await interaction.response.edit_message(
+                content=f"❌ Insufficient funds. Your current balance is ${sender_bal:.2f}.",
+                view=None
+            )
+
+        # Debit the sender
+        await data.update_balance(self.sender_id, -self.amount)
+        # Credit the recipient
+        await data.update_balance(self.recipient_id, self.amount)
+        # Log the transfer once (from_user -> to_user)
+        new_sender_bal = await data.get_balance(self.sender_id)
+        await data.log_transfer(
+            type="transfer",
+            from_user=self.sender_id,
+            to_user=self.recipient_id,
+            amount=self.amount,
+            balance=new_sender_bal
+        )
+
+        # Acknowledge back to the sender
+        await interaction.response.edit_message(
+            content=(
+                f"✅ **Transfer complete!**\n"
+                f"You sent **${self.amount:.2f}** to <@{self.recipient_id}>.\n"
+                f"Your new balance is **${new_sender_bal:.2f}**."
+            ),
+            view=None
+        )
+
+    @button(label="Cancel", style=ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button):
+        # Anyone can cancel, but the message becomes “canceled”
+        await interaction.response.edit_message(
+            content="❌ Transfer canceled.",
+            view=None
+        )
 
 
 # Slash commands
@@ -252,7 +309,7 @@ async def delete_market(interaction: discord.Interaction, id: str):
     description="Buy Y or N shares by specifying a dollar amount"
 )
 @app_commands.describe(
-    id="Market ID to trade on",
+    id="Market ID to buy shares in",
     side="Y or N",
     amount="Dollar amount to spend (input number without $ symbol)"
 )
@@ -286,7 +343,7 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
             f"Average price: **${price:.4f}**/share\n"
             f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
             f"Click `Confirm` or `Cancel`\n"
-            f"*(Times out in 60 seconds)*\n\n"
+            f"*(Times out in 60 seconds)*"
         ),
         ephemeral=True, view=view
     )
@@ -314,8 +371,8 @@ async def port(interaction: discord.Interaction):
     # Compute total bet value and build lines, skip missing or resolved markets
     total_bet_val=0
     lines = [
-    "Market   | Side |   Shares   |    Value    |   Unrealiz. Profit",
-    "---------|------|------------|-------------|-------------"
+    "Market         | Side |   Shares    |    Value    |   Unrealiz. Profit",
+    "---------------|------|-------------|-------------|--------------------"
     ]
     for mid,pos in bets.items():
         m=markets.get(mid)
@@ -335,7 +392,7 @@ async def port(interaction: discord.Interaction):
             total_bet_val += value
             side_label = "YES" if outcome == "YES" else "NO"
             lines.append(
-            f"{mid:<8} | {side_label:<4} | {shares:10.4f} | ${value:10.2f} | ${profit:10.2f}"
+            f"{mid:<14} | {side_label:<4} | {shares:11.4f} | ${value:10.2f} | ${profit:17.2f}"
             )
 
     # Totals
@@ -431,6 +488,64 @@ async def withdraw(
     await interaction.response.send_message(
         f"✅ Withdrew **${amount:.2f}** from {user.mention}. New balance: **${new_bal:.2f}**",
         ephemeral=True
+    )
+
+# /send
+@bot.tree.command(
+    name="send",
+    description="Send cash to another user."
+)
+@app_commands.describe(
+    user="User you want to send money to",
+    amount="Amount to send (input number without $ symbol)"
+)
+async def send(
+    interaction: discord.Interaction,
+    user: discord.User,
+    amount: float
+):
+    sender_id = str(interaction.user.id)
+    recipient_id = str(user.id)
+
+    # Prevent sending to yourself
+    if recipient_id == sender_id:
+        return await interaction.response.send_message(
+            "❌ You cannot send money to yourself.",
+            ephemeral=True
+        )
+
+    # Amount validation
+    if amount <= 0:
+        return await interaction.response.send_message(
+            "❌ Please specify a positive number.",
+            ephemeral=True
+        )
+
+    # Check sender's balance
+    sender_bal = await data.get_balance(sender_id)
+    if amount > sender_bal:
+        return await interaction.response.send_message(
+            f"❌ Insufficient funds: you only have ${sender_bal:.2f}.",
+            ephemeral=True
+        )
+
+    # Build confirmation view
+    view = SendConfirmView(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        amount=amount
+    )
+
+    # Send ephemeral confirmation prompt
+    await interaction.response.send_message(
+        content=(
+            f"⚠️ You are about to send **${amount:.2f}** to {user.mention}.\n"
+            f"Your current balance is **${sender_bal:.2f}**.\n"
+            f"Click `Confirm` or `Cancel`\n"
+            f"*(Times out in 60 seconds)*"
+        ),
+        ephemeral=True,
+        view=view
     )
 
 

@@ -313,6 +313,54 @@ async def delete_market(interaction: discord.Interaction, id: str):
         ephemeral=True, view=view
     )
 
+# /details
+@bot.tree.command(
+    name="details",
+    description="Show detailed info about a specific market"
+)
+@app_commands.describe(
+    id="Market ID to show details for"
+)
+async def details(interaction: discord.Interaction, id: str):
+    # Load all markets
+    markets = await data.load_markets()
+    m = markets.get(id)
+    if not m:
+        return await interaction.response.send_message(
+            f"❌ Market `{id}` not found.",
+            ephemeral=True
+        )
+    # Pull fields from schema
+    question    = m["question"]
+    b_val       = m["b"]
+    implied     = m["implied_odds"] * 100
+    yes_shares  = m["shares"]["YES"]
+    no_shares   = m["shares"]["NO"]
+    volume      = m.get("volume_traded", 0)
+    last_trade  = m.get("last_trade") or "N/A"
+    # Build the message lines
+    lines = [f"**Question:** {question}"]
+    # Only show Details if non-empty
+    details_txt = m.get("details")
+    if details_txt:
+        lines.append(f"**Details:** *{details_txt}*")
+    # Always show b
+    lines.append(f"**Liquidity (b-value):** `{b_val}`")
+    # Only show Subject if non-empty
+    subject_txt = m.get("subject")
+    if subject_txt:
+        lines.append(f"**Subject:** {subject_txt}")
+    # Add the dynamic data
+    lines.append(f"**Implied odds:** {implied:.2f}%")
+    lines.append(f"**Shares:** {yes_shares:.4f} `YES` / {no_shares:.4f} `NO`")
+    lines.append(f"**Volume:** ${volume:.2f}")
+    lines.append(f"**Last trade:** {last_trade}")
+    # Send the assembled message
+    await interaction.response.send_message(
+        "\n".join(lines),
+        ephemeral=True
+    )
+
 # /buy
 @bot.tree.command(
     name="buy",

@@ -144,7 +144,7 @@ class BuyConfirmView(View):
                 f"✅ Bought **{self.shares:.4f}** `{self.outcome}` shares in `{self.market_id}`\n"
                 f"Average price: **${self.price:.4f}**/share\n"
                 f"Spent: **${self.amount:.2f}**\n"
-                f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
+                f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:+.1f}%)\n"
                 f"New balance: **${await data.get_balance(self.user_id):.2f}**"
             ),
             view=None
@@ -264,6 +264,16 @@ async def create_market(
         ephemeral=True
     )
 
+    # Public announcement of the new market
+    await broadcasts.broadcast_market_created(
+        client     = interaction.client,
+        market_id  = id,
+        question   = question,
+        details    = details,
+        b          = b
+    )
+
+
 # /markets
 @bot.tree.command(
     name="markets",
@@ -339,9 +349,9 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     view = BuyConfirmView(user_id,id,outcome,amount,shares,price)
     await interaction.response.send_message(
         content=(
-            f"💹 With **${amount:.2f}**, you can buy **{shares:.4f}** `{outcome}` shares\n"
+            f"🛒 With **${amount:.2f}**, you can buy **{shares:.4f}** `{outcome}` shares\n"
             f"Average price: **${price:.4f}**/share\n"
-            f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:.1f}%)\n"
+            f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:+.1f}%)\n"
             f"Click `Confirm` or `Cancel`\n"
             f"*(Times out in 60 seconds)*"
         ),

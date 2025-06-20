@@ -77,6 +77,7 @@ class DeleteConfirmView(View):
 # Confirmation view for /buy
 class BuyConfirmView(View):
     def __init__(self, user_id, market_id, outcome, amount, shares, price):
+        # Auto-timeout after 60s
         super().__init__(timeout=60)
         self.user_id   = user_id
         self.market_id = market_id
@@ -84,6 +85,18 @@ class BuyConfirmView(View):
         self.amount    = amount
         self.shares    = shares
         self.price     = price
+        self.message   = None  # Will hold the sent message
+
+    # Timeout handler
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(
+                    content="❌ Buy order expired",
+                    view=None
+                )
+            except:
+                pass
 
     @button(label="Confirm", style=ButtonStyle.primary)
     async def confirm(self, interaction: discord.Interaction, button):
@@ -401,10 +414,12 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
             f"Average price: **${price:.4f}**/share\n"
             f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:+.1f}%)\n"
             f"Click `Confirm` or `Cancel`\n"
-            f"*(Times out in 60 seconds)*"
+            f"*(Order expires in 60 seconds)*"
         ),
         ephemeral=True, view=view
     )
+    # This is necessary to edit the message later in the view
+    view.message = await interaction.original_response()
 
 # /bal
 @bot.tree.command(name="bal", description="Check your cash balance")

@@ -7,3 +7,6 @@ venv/
 
 # Secrets
 .env
+
+# Database
+data.db

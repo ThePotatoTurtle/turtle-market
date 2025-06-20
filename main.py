@@ -185,6 +185,106 @@ class BuyConfirmView(View):
             content="❌ Buy order canceled", view=None
         )
 
+
+# Confirmation view for /sell
+class SellConfirmView(View):
+    def __init__(self, user_id: str, market_id: str, outcome: str, percent: int, shares: float, price: float):
+        super().__init__(timeout=60)
+        self.user_id    = user_id
+        self.market_id  = market_id
+        self.outcome    = outcome
+        self.percent    = percent
+        self.shares     = shares
+        self.price      = price      # Avg price calculated at command time
+        self.message    = None
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(content="❌ Sell order expired", view=None)
+            except:
+                pass
+
+    @button(label="Confirm", style=ButtonStyle.primary)
+    async def confirm(self, interaction: discord.Interaction, button):
+        # Only original user can confirm
+        if str(interaction.user.id) != self.user_id:
+            return await interaction.response.send_message("❌ Not your order.", ephemeral=True)
+
+        # Final price check
+        markets = await data.load_markets()
+        m = markets[self.market_id]
+        qy, qn, b = m['shares']['YES'], m['shares']['NO'], m['b']
+        current_cost = lmsr.lmsr_cost(qy, qn, b)
+        if self.outcome == "YES":
+            new_cost = lmsr.lmsr_cost(qy - self.shares, qn, b)
+        else:
+            new_cost = lmsr.lmsr_cost(qy, qn - self.shares, b)
+        new_amount = current_cost - new_cost
+        new_avg = new_amount / self.shares
+        if abs(new_avg - self.price) > 1e-6:
+            return await interaction.response.edit_message(
+                content=(
+                    f"❌ Sell order failed. Price has moved from **${self.price:.4f}** to **${new_avg:.4f}**."
+                ),
+                view=None
+            )
+
+        # Execute sell: debit pool, credit user
+        await data.update_balance(self.user_id, new_amount)
+        await data.update_balance(config.POOL_ID, -new_amount)
+
+        # Update user's position
+        await data.add_bet(self.user_id, self.market_id, self.outcome, -self.shares, -new_amount)
+
+        # Update market data
+        m['shares'][self.outcome] -= self.shares
+        implied_yes = lmsr.lmsr_price(m['shares']['YES'], m['shares']['NO'], b)
+        m['implied_odds']  = implied_yes
+        m['last_trade']    = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        m['volume_traded'] = m.get('volume_traded', 0) + abs(new_amount)
+        await data.save_markets(markets)
+
+        # Log the trade (negative shares & negative amount)
+        balance = await data.get_balance(self.user_id)
+        await data.log_trade(
+            user_id   = self.user_id,
+            market_id = self.market_id,
+            outcome   = self.outcome,
+            shares    = -self.shares,
+            amount    = -new_amount,
+            price     = self.price,
+            balance   = balance
+        )
+
+        # Broadcast publicly
+        await broadcasts.broadcast_trade(
+            client       = interaction.client,
+            market_id    = self.market_id,
+            market_name  = m['question'],
+            side         = "SELL",
+            outcome      = self.outcome,
+            shares       = self.shares,
+            amount       = new_amount,
+            implied_odds = implied_yes
+        )
+
+        # Confirm to user
+        await interaction.response.edit_message(
+            content=(
+                f"✅ Sold **{self.shares:.4f}** `{self.outcome}` shares in `{self.market_id}`\n"
+                f"Average price: **${self.price:.4f}**/share\n"
+                f"Received: **${new_amount:.2f}**\n"
+                f"New balance: **${balance:.2f}**"
+            ),
+            view=None
+        )
+
+    @button(label="Cancel", style=ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button):
+        await interaction.response.edit_message(content="❌ Sell order canceled", view=None)
+
+
 # Confirmation view for /send
 class SendConfirmView(View):
     def __init__(self, sender_id: str, recipient_id: str, amount: float):
@@ -319,6 +419,7 @@ async def list_markets(interaction: discord.Interaction):
         return await interaction.response.send_message("No active markets.", ephemeral=True)
     await interaction.response.send_message("🏦 Active Markets:\n" + "\n".join(lines), ephemeral=True)
 
+
 # /delete_market (admin only)
 @bot.tree.command(
     name="delete_market",
@@ -341,6 +442,7 @@ async def delete_market(interaction: discord.Interaction, id: str):
         ),
         ephemeral=True, view=view
     )
+
 
 # /details
 @bot.tree.command(
@@ -390,6 +492,7 @@ async def details(interaction: discord.Interaction, id: str):
         ephemeral=True
     )
 
+
 # /buy
 @bot.tree.command(
     name="buy",
@@ -398,7 +501,7 @@ async def details(interaction: discord.Interaction, id: str):
 @app_commands.describe(
     id="Market ID to buy shares in",
     side="Y or N",
-    amount="Dollar amount to spend (input number without $ symbol)"
+    amount="Amount to spend"
 )
 async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"], amount: float):
     user_id = str(interaction.user.id)
@@ -426,7 +529,7 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     view = BuyConfirmView(user_id,id,outcome,amount,shares,price)
     await interaction.response.send_message(
         content=(
-            f"🛒 With **${amount:.2f}**, you can buy **{shares:.4f}** `{outcome}` shares\n"
+            f"🛒 You are buying **{shares:.4f}** `{outcome}` shares for **${amount:.2f}**\n"
             f"Average price: **${price:.4f}**/share\n"
             f"Potential profit (after {config.REDEEM_FEE*100}% fee): **${profit_after_fee:.2f}** ({pct:+.1f}%)\n"
             f"Click `Confirm` or `Cancel`\n"
@@ -437,6 +540,79 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     # This is necessary to edit the message later in the view
     view.message = await interaction.original_response()
 
+
+# /sell command
+@bot.tree.command(
+    name="sell",
+    description="Sell Y or N shares by specifying a percentage of your holdings"
+)
+@app_commands.describe(
+    id="Market ID to sell shares in",
+    side="Y or N",
+    percent="Percent of your shares to sell (1-100)"
+)
+async def sell(
+    interaction: discord.Interaction,
+    id: str,
+    side: Literal["Y","N"],
+    percent: int
+):
+    user_id = str(interaction.user.id)
+    outcome = "YES" if side.upper()=="Y" else "NO"
+
+    # Market checks
+    markets = await data.load_markets()
+    m = markets.get(id)
+    if not m:
+        return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
+    if m['resolved']:
+        return await interaction.response.send_message(f"❌ Market `{id}` is already resolved.", ephemeral=True)
+
+    # User position
+    bets = await data.load_bets()
+    user_bets = bets.get(user_id, {})           # All markets user has bets in
+    market_bets = user_bets.get(id, {})         # The dict {'YES': {...}, 'NO': {...}}
+    outcome_bet = market_bets.get(outcome, {})  # The dict {'shares': X, …}
+    owned = outcome_bet.get('shares', 0)
+    if owned <= 0:
+        return await interaction.response.send_message(
+            f"❌ You have no `{outcome}` shares to sell.",
+            ephemeral=True
+        )
+
+    # Percent validation
+    if percent < 1 or percent > 100:
+        return await interaction.response.send_message("❌ Percent must be between 1 and 100.", ephemeral=True)
+
+    shares_to_sell = owned * (percent / 100)
+
+    # Compute proceeds via LMSR cost-difference
+    qy, qn, b = m['shares']['YES'], m['shares']['NO'], m['b']
+    current_cost = lmsr.lmsr_cost(qy, qn, b)
+    if outcome == "YES":
+        new_cost = lmsr.lmsr_cost(qy - shares_to_sell, qn, b)
+    else:
+        new_cost = lmsr.lmsr_cost(qy, qn - shares_to_sell, b)
+    amount = current_cost - new_cost
+    price  = amount / shares_to_sell if shares_to_sell else 0
+
+    # Confirmation UI
+    view = SellConfirmView(user_id, id, outcome, percent, shares_to_sell, price)
+    await interaction.response.send_message(
+        content=(
+            f"💸 You are selling **{shares_to_sell:.4f}** `{outcome}` shares "
+            f"({percent}% of your position)\n"
+            f"Average price: **${price:.4f}**/share\n"
+            f"You will receive: **${amount:.2f}**\n"
+            f"Click `Confirm` or `Cancel`\n"
+            f"*(Order expires in 60 seconds)*"
+        ),
+        ephemeral=True,
+        view=view
+    )
+    view.message = await interaction.original_response()
+
+
 # /bal
 @bot.tree.command(name="bal", description="Check your cash balance")
 async def bal(interaction: discord.Interaction):
@@ -444,6 +620,7 @@ async def bal(interaction: discord.Interaction):
     await interaction.response.send_message(
         content=f"💰 Your cash balance is **${bal:.2f}**", ephemeral=True
     )
+
 
 # /port
 @bot.tree.command(
@@ -503,6 +680,7 @@ async def port(interaction: discord.Interaction):
         ephemeral=True
     )
 
+
 # /deposit (admin only)
 @bot.tree.command(
     name="deposit",
@@ -537,6 +715,7 @@ async def deposit(
         f"✅ Deposited **${amount:.2f}** to {user.mention}. New balance: **${new_bal:.2f}**",
         ephemeral=True
     )
+
 
 # /withdraw (admin only)
 @bot.tree.command(
@@ -578,6 +757,7 @@ async def withdraw(
         f"✅ Withdrew **${amount:.2f}** from {user.mention}. New balance: **${new_bal:.2f}**",
         ephemeral=True
     )
+
 
 # /send
 @bot.tree.command(

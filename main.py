@@ -103,6 +103,22 @@ class BuyConfirmView(View):
         if str(interaction.user.id) != self.user_id:
             return await interaction.response.send_message("❌ Not your order", ephemeral=True)
 
+    # Final price check before executing buy (in case another user traded in the meantime)
+        markets = await data.load_markets()
+        m = markets[self.market_id]
+        qy, qn, b = m['shares']['YES'], m['shares']['NO'], m['b']
+        # How many shares this amount would buy now
+        new_shares = lmsr.calc_shares(self.amount, qy, qn, b, self.outcome)
+        new_avg = self.amount / new_shares
+        # Abort if average price changed
+        if abs(new_avg - self.price) > 1e-6:
+            return await interaction.response.edit_message(
+                content=(
+                    f"❌ Buy order failed. Price has moved from **${self.price:.4f}** to **${new_avg:.4f}**."
+                ),
+                view=None
+            )
+
         # Update balances and portfolio
         await data.update_balance(self.user_id, -self.amount)
         await data.update_balance(config.POOL_ID, self.amount)

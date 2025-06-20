@@ -513,7 +513,7 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     if not m:
         return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
     if m['resolved']:
-        return await interaction.response.send_message(f"❌ Market `{id}` is resolved.", ephemeral=True)
+        return await interaction.response.send_message(f"❌ Market `{id}` is already resolved.", ephemeral=True)
     bal = await data.get_balance(user_id)
     if amount<=0 or amount>bal:
         return await interaction.response.send_message(f"❌ Invalid amount. You have ${bal:.2f}.", ephemeral=True)

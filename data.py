@@ -148,7 +148,11 @@ async def get_balance(user_id: str) -> float:
         if row:
             return row[0]
         bal = config.DEFAULT_USER_BALANCE
-        await db.execute("INSERT INTO user_balances(user_id, balance) VALUES (?, ?)", (user_id, bal))
+        await db.execute(
+            "INSERT INTO user_balances(user_id, balance, volume_traded, volume_resolved) "
+            "VALUES (?, ?, 0, 0)",
+            (user_id, bal)
+        )
         await db.commit()
         return bal
 
@@ -160,8 +164,8 @@ async def update_balance(user_id: str, delta: float) -> None:
     new_bal = bal + delta
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "INSERT OR REPLACE INTO user_balances(user_id, balance) VALUES (?, ?)",
-            (user_id, new_bal)
+            "UPDATE user_balances SET balance = ? WHERE user_id = ?",
+            (new_bal, user_id)
         )
         await db.commit()
 
@@ -222,10 +226,18 @@ async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, a
     Log a buy/sell transaction atomically.
     """
     async with aiosqlite.connect(DB_PATH) as db:
+        # Log the trade in user_trades
         await db.execute(
             "INSERT INTO trades(user_id, market_id, outcome, shares, amount, price, balance, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ",
             (user_id, market_id, outcome, shares, amount, price, balance,
              datetime.datetime.now(datetime.timezone.utc).isoformat())
+        )
+        # Increment the user’s volume_traded by the absolute $ amount
+        await db.execute(
+            "UPDATE user_balances "
+            "SET volume_traded = volume_traded + abs(?) "
+            "WHERE user_id = ?",
+            (amount, user_id)
         )
         await db.commit()
 

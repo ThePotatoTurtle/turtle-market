@@ -6,7 +6,7 @@ PRAGMA foreign_keys = ON;
 
 -- 1. Market information (metadata)
 CREATE TABLE IF NOT EXISTS market_info (
-    market_id       TEXT PRIMARY KEY,
+    market_id       TEXT    PRIMARY KEY,
     question        TEXT    NOT NULL,
     details         TEXT,
     b               REAL    NOT NULL,
@@ -57,28 +57,30 @@ CREATE TABLE IF NOT EXISTS trades (
 -- 5. Transfer logs (deposits, withdrawals, sends)
 CREATE TABLE IF NOT EXISTS transfers (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    type       TEXT    NOT NULL,
+    type       TEXT     NOT NULL,
     from_user  TEXT,
     to_user    TEXT,
-    amount     REAL    NOT NULL,
-    balance    REAL    NOT NULL,
-    timestamp  TEXT    NOT NULL DEFAULT (datetime('now'))
+    amount     REAL     NOT NULL,
+    balance    REAL     NOT NULL,
+    timestamp  TEXT     NOT NULL DEFAULT (datetime('now'))
 );
 
--- 6. User balances
+-- 6. User balances and records
 CREATE TABLE IF NOT EXISTS user_balances (
-    user_id TEXT PRIMARY KEY,
-    balance REAL    NOT NULL
+    user_id     TEXT    PRIMARY KEY,
+    balance     REAL    NOT NULL,
+    volume_traded   REAL    NOT NULL DEFAULT 0,
+    volume_resolved REAL    NOT NULL DEFAULT 0
 );
 
 -- 7. User bets (portfolio)
 CREATE TABLE IF NOT EXISTS user_bets (
-    user_id   TEXT    NOT NULL,
-    market_id TEXT    NOT NULL,
-    outcome   TEXT    NOT NULL,
-    shares    REAL    NOT NULL,
-    cost_basis REAL   DEFAULT 0,
-    last_trade TEXT,
+    user_id     TEXT    NOT NULL,
+    market_id   TEXT    NOT NULL,
+    outcome     TEXT    NOT NULL,
+    shares      REAL    NOT NULL,
+    cost_basis  REAL    DEFAULT 0,
+    last_trade  TEXT,
     PRIMARY KEY(user_id, market_id, outcome),
     FOREIGN KEY(market_id) REFERENCES market_info(market_id)
 );

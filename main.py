@@ -417,7 +417,7 @@ async def list_markets(interaction: discord.Interaction):
             lines.append(f"• **{mid}**: {market['question']} | {odds:.1f}%")
     if not lines:
         return await interaction.response.send_message("No active markets.", ephemeral=True)
-    await interaction.response.send_message("🏦 Active Markets:\n" + "\n".join(lines), ephemeral=True)
+    await interaction.response.send_message("🏦 Active markets:\n" + "\n".join(lines), ephemeral=True)
 
 
 # /delete_market (admin only)
@@ -863,6 +863,28 @@ async def resolve_market(
         f"Paid out **${total_paid:.2f}**. Losers forfeited **{total_lost:.2f}** shares.",
         ephemeral=True
     )
+
+
+# /resolved (shows all resolved markets)
+@bot.tree.command(
+    name="resolved",
+    description="List all resolved markets"
+)
+async def list_resolved(interaction: discord.Interaction):
+    markets = await data.load_markets()
+    lines = []
+    for mid, m in markets.items():
+        if m['resolved']:
+            implied_pct = m['implied_odds'] * 100
+            res_date    = m.get('resolution_date') or "N/A"
+            lines.append(
+                f"• **{mid}**: {m['question']} | {implied_pct:.1f}% | {res_date}"
+            )
+    if not lines:
+        return await interaction.response.send_message(
+            "No resolved markets.", ephemeral=True
+        )
+    await interaction.response.send_message("🏁 Resolved markets:\n" + "\n".join(lines), ephemeral=True)
 
 
 # Run the bot

@@ -26,33 +26,26 @@ LMSR provides continuous pricing via a convex cost function, avoiding order book
 
 1. **Cost Function**
 
-   $$
-   C(q_Y, q_N) = b \cdot \ln\bigl(e^{q_Y/b} + e^{q_N/b}\bigr)
-   $$
+   `C(q_Y, q_N) = b * ln(exp(q_Y/b) + exp(q_N/b))`
 
-   - **q\_Y, q\_N**: total YES/NO shares sold
+   - **q_Y, q_N**: total YES/NO shares sold
    - **b**: liquidity parameter (higher = more liquidity, less slippage)
 
 2. **Marginal Price**
 
-   $$
-   P_{YES} = \frac{e^{q_Y/b}}{e^{q_Y/b} + e^{q_N/b}},
-   \quad P_{NO} = 1 - P_{YES}
-   $$
+   `P_YES = exp(q_Y/b) / (exp(q_Y/b) + exp(q_N/b))`
+   
+   `P_NO = 1 - P_YES`
 
-3. **Buying \$A**: solves for Δq such that
+3. **Buying $A**: solves for Δq such that
 
-   $$
-   C(q_Y+Δq,\,q_N) - C(q_Y,\,q_N) = A
-   $$
+   `C(q_Y+Δq, q_N) - C(q_Y, q_N) = A`
 
-   giving you Δq shares for \$A.
+   giving you Δq shares for $A.
 
 4. **Selling**: you earn
 
-   $$
-   C(q_Y,\,q_N) - C(q_Y-Δq,\,q_N)
-   $$
+   `C(q_Y, q_N) - C(q_Y-Δq, q_N)`
 
    by returning Δq shares.
 

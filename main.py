@@ -70,7 +70,7 @@ class DeleteConfirmView(View):
     @button(label="Cancel", style=ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button):
         await interaction.response.edit_message(
-            content="❌ Deletion canceled", view=None
+            content="❌ Deletion canceled.", view=None
         )
 
 
@@ -92,7 +92,7 @@ class BuyConfirmView(View):
         if self.message:
             try:
                 await self.message.edit(
-                    content="❌ Buy order expired",
+                    content="❌ Buy order expired.",
                     view=None
                 )
             except:
@@ -101,7 +101,7 @@ class BuyConfirmView(View):
     @button(label="Confirm", style=ButtonStyle.primary)
     async def confirm(self, interaction: discord.Interaction, button):
         if str(interaction.user.id) != self.user_id:
-            return await interaction.response.send_message("❌ Not your order", ephemeral=True)
+            return await interaction.response.send_message("❌ Not your order.", ephemeral=True)
 
     # Final price check before executing buy (in case another user traded in the meantime)
         markets = await data.load_markets()
@@ -145,8 +145,8 @@ class BuyConfirmView(View):
             user_id   = self.user_id,
             market_id = self.market_id,
             outcome   = self.outcome,
-            shares    = self.shares,   # positive for buy
-            amount    = self.amount,   # positive dollars spent
+            shares    = self.shares,   # Positive for buy
+            amount    = self.amount,   # Positive dollars spent
             price     = self.price,
             balance   = balance
         )
@@ -182,7 +182,7 @@ class BuyConfirmView(View):
     @button(label="Cancel", style=ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button):
         await interaction.response.edit_message(
-            content="❌ Buy order canceled", view=None
+            content="❌ Buy order canceled.", view=None
         )
 
 
@@ -201,7 +201,7 @@ class SellConfirmView(View):
     async def on_timeout(self):
         if self.message:
             try:
-                await self.message.edit(content="❌ Sell order expired", view=None)
+                await self.message.edit(content="❌ Sell order expired.", view=None)
             except:
                 pass
 
@@ -282,7 +282,7 @@ class SellConfirmView(View):
 
     @button(label="Cancel", style=ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button):
-        await interaction.response.edit_message(content="❌ Sell order canceled", view=None)
+        await interaction.response.edit_message(content="❌ Sell order canceled.", view=None)
 
 
 # Confirmation view for /send
@@ -328,9 +328,9 @@ class SendConfirmView(View):
         # Acknowledge back to the sender
         await interaction.response.edit_message(
             content=(
-                f"✅ **Transfer complete!**\n"
-                f"You sent **${self.amount:.2f}** to <@{self.recipient_id}>.\n"
-                f"Your new balance is **${new_sender_bal:.2f}**."
+                f"✅ **Transfer complete**\n"
+                f"You sent **${self.amount:.2f}** to <@{self.recipient_id}>\n"
+                f"Your new balance is **${new_sender_bal:.2f}**"
             ),
             view=None
         )
@@ -385,7 +385,7 @@ async def create_market(
         return await interaction.response.send_message(f"❌ {e}", ephemeral=True)
 
     await interaction.response.send_message(
-        f"🔔 Market `{id}` created!\n"
+        f"🔔 Market `{id}` created\n"
         f"Question: **{question}**\n"
         f"Details: *{details}*\n"
         f"Subject: `{subject}`\n"
@@ -545,7 +545,7 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
     view.message = await interaction.original_response()
 
 
-# /sell command
+# /sell
 @bot.tree.command(
     name="sell",
     description="Sell Y or N shares by specifying a percentage of your holdings"
@@ -670,8 +670,8 @@ async def port(interaction: discord.Interaction):
     # Header
     header = (
         f"💰 Cash: **${bal:.2f}**\n"
-        f"📈 Open Bets: **${total_bet_val:.2f}**\n"
-        f"🔖 Total Portfolio: **${total:.2f}**"
+        f"📈 Open bets: **${total_bet_val:.2f}**\n"
+        f"🔖 Total portfolio: **${total:.2f}**"
     )
     # Build response
     if not lines:
@@ -680,7 +680,7 @@ async def port(interaction: discord.Interaction):
         table = "```\n" + "\n".join(lines) + "\n```"
 
     await interaction.response.send_message(
-        content=f"{header}\n\nOpen Bets:\n{table}",
+        content=f"{header}\n\nOpen Bets (FORMATTING SCREWED UP ON MOBILE, FIX PENDING):\n{table}",
         ephemeral=True
     )
 
@@ -716,7 +716,8 @@ async def deposit(
     )
     # Send confirmation
     await interaction.response.send_message(
-        f"✅ Deposited **${amount:.2f}** to {user.mention}. New balance: **${new_bal:.2f}**",
+        f"✅ Deposited **${amount:.2f}** to {user.mention}\n"
+        f"New balance: **${new_bal:.2f}**",
         ephemeral=True
     )
 
@@ -758,7 +759,8 @@ async def withdraw(
     )
     # Send confirmation
     await interaction.response.send_message(
-        f"✅ Withdrew **${amount:.2f}** from {user.mention}. New balance: **${new_bal:.2f}**",
+        f"✅ Withdrew **${amount:.2f}** from {user.mention}\n"
+        f"New balance: **${new_bal:.2f}**",
         ephemeral=True
     )
 
@@ -766,7 +768,7 @@ async def withdraw(
 # /send
 @bot.tree.command(
     name="send",
-    description="Send cash to another user."
+    description="Send cash to another user"
 )
 @app_commands.describe(
     user="User you want to send money to",
@@ -812,8 +814,8 @@ async def send(
     # Send ephemeral confirmation prompt
     await interaction.response.send_message(
         content=(
-            f"⚠️ You are about to send **${amount:.2f}** to {user.mention}.\n"
-            f"Your current balance is **${sender_bal:.2f}**.\n"
+            f"⚠️ You are about to send **${amount:.2f}** to {user.mention}\n"
+            f"Your current balance is **${sender_bal:.2f}**\n"
             f"Click `Confirm` or `Cancel`\n"
             f"*(Times out in 60 seconds)*"
         ),
@@ -822,10 +824,10 @@ async def send(
     )
 
 
-# /resolve
+# /resolve (admin only)
 @bot.tree.command(
     name="resolve",
-    description="Admin: resolve a market and payout winners"
+    description="Admin: resolve a market as YES or NO"
 )
 @app_commands.describe(
     id="Market ID to resolve",
@@ -859,8 +861,8 @@ async def resolve_market(
 
     # Send confirmation to admin
     await interaction.response.send_message(
-        f"🔔 Market `{id}` resolved as `{correct}`.\n"
-        f"Paid out **${total_paid:.2f}**. Losers forfeited **{total_lost:.2f}** shares.",
+        f"🔔 Market `{id}` resolved as `{correct}`\n"
+        f"Paid out **${total_paid:.2f}**. Losers forfeited **{total_lost:.2f}** shares",
         ephemeral=True
     )
 
@@ -885,6 +887,27 @@ async def list_resolved(interaction: discord.Interaction):
             "No resolved markets.", ephemeral=True
         )
     await interaction.response.send_message("🏁 Resolved markets:\n" + "\n".join(lines), ephemeral=True)
+
+
+# /help
+@bot.tree.command(
+    name="help",
+    description="List all non-admin commands and their descriptions"
+)
+async def help_command(interaction: discord.Interaction):
+    # Grab every registered slash command
+    all_cmds = interaction.client.tree.get_commands()
+    # Exclude admin ones (those whose description starts with "Admin:")
+    public_cmds = [
+        c for c in all_cmds
+        if not (c.description or "").lower().startswith("admin:")
+    ]
+    # Build lines like "/name — description"
+    lines = [f"/{c.name} — {c.description}" for c in public_cmds]
+    await interaction.response.send_message(
+        "\n".join(lines),
+        ephemeral=True
+    )
 
 
 # Run the bot

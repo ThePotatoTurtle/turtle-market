@@ -53,9 +53,9 @@ async def broadcast_market_created(
     # Build & send the message
     await chan.send(
         f"📢 **New market:** `{market_id}`\n"
-        f"**Topic**: {question}\n"
-        f"**Details:** *{details or '—'}*\n"
-        f"**Liquidity (b-value):** `{b}`"
+        f"• **Topic**: {question}\n"
+        f"• **Details:** *{details or '—'}*\n"
+        f"• **Liquidity (b-value):** `{b}`"
     )
 
 

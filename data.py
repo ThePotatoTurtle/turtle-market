@@ -219,7 +219,7 @@ async def add_bet(user_id: str, market_id: str, outcome: str, delta_shares: floa
         await db.commit()
 
 
-# Transaction logging
+# Transaction operations
 
 async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, amount: float, price: float, balance: float) -> None:
     """
@@ -264,3 +264,74 @@ async def log_transfer(type: str, from_user: Optional[str], to_user: Optional[st
              datetime.datetime.now(datetime.timezone.utc).isoformat())
         )
         await db.commit()
+
+
+# Resolution operations
+async def resolve_market(market_id: str, correct: str) -> tuple[str, float, float, float]:
+    """
+    Atomically resolves a market:
+      • Marks it resolved in market_data
+      • Credits $1 per correct share to each user
+      • Logs each resolution
+    Returns (question, implied_odds, total_paid, total_lost_shares).
+    Raises ValueError on missing or already-resolved market.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA foreign_keys = ON")
+        # Fetch state
+        cur = await db.execute(
+            "SELECT d.resolved, i.question, d.implied_odds "
+            "FROM market_data d "
+            "JOIN market_info i USING(market_id) "
+            "WHERE d.market_id = ?",
+            (market_id,)
+        )
+        row = await cur.fetchone()
+        if not row:
+            raise ValueError(f"Market `{market_id}` not found")
+        was_resolved, question, implied = row
+        if was_resolved:
+            raise ValueError(f"Market `{market_id}` already resolved")
+
+        ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # Mark market resolved
+        await db.execute(
+            "UPDATE market_data "
+            "SET resolved=1, resolution=?, resolution_date=? "
+            "WHERE market_id=?",
+            (correct, ts, market_id)
+        )
+
+        # Payout each user and log
+        cur = await db.execute(
+            "SELECT user_id, outcome, shares "
+            "FROM user_bets WHERE market_id=?",
+            (market_id,)
+        )
+        total_paid = 0.0
+        total_lost  = 0.0
+        async for user_id, outcome, shares in cur:
+            redeemed = shares if outcome == correct else 0.0
+            total_paid += redeemed
+            if outcome != correct:
+                total_lost += shares
+
+            # Credit winner (or credit $0 for losers)
+            await db.execute(
+                "UPDATE user_balances "
+                "SET balance = balance + ? "
+                "WHERE user_id = ?",
+                (redeemed, user_id)
+            )
+            # Log the resolution row
+            await db.execute(
+                "INSERT INTO resolutions "
+                "(user_id, market_id, outcome, shares, redeemed, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, market_id, outcome, shares, redeemed, ts)
+            )
+
+        # Commit once
+        await db.commit()
+    return question, implied, total_paid, total_lost

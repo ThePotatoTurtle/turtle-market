@@ -52,8 +52,35 @@ async def broadcast_market_created(
 
     # Build & send the message
     await chan.send(
-        f"📢 **New market**: `{market_id}`\n"
+        f"📢 **New market:** `{market_id}`\n"
         f"**Topic**: {question}\n"
         f"**Details:** *{details or '—'}*\n"
         f"**Liquidity (b-value):** `{b}`"
+    )
+
+
+# Broadcast market resolutions to MARKETS_CHANNEL_ID
+async def broadcast_resolution(
+    client: discord.Client,
+    market_id: str,
+    market_name: str,
+    correct_side: str,
+    implied_odds: float,
+    total_paid: float,
+    total_lost_shares: float
+):
+    """
+    Publicly announce that a market has been resolved.
+    """
+    chan = client.get_channel(config.MARKETS_CHANNEL_ID)
+    if chan is None:
+        chan = await client.fetch_channel(config.MARKETS_CHANNEL_ID)
+
+    await chan.send(
+        f"📢 **Market resolved:** `{market_id}`\n"
+        f"• **Topic:** {market_name}\n"
+        f"• **Outcome:** `{correct_side}`\n"
+        f"• **Implied odds at resolution:** {implied_odds*100:.2f}%\n"
+        f"• **Total payout:** ${total_paid:.2f}\n"
+        f"• **Total forfeited shares:** {total_lost_shares:.2f}"
     )

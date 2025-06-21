@@ -471,13 +471,13 @@ async def details(interaction: discord.Interaction, id: str):
     last_trade  = m.get("last_trade") or "N/A"
     # Build the message lines
     lines = [f"**Question:** {question}"]
-    # Only show Details if non-empty
+    # Only show details if non-empty
     details_txt = m.get("details")
     if details_txt:
         lines.append(f"**Details:** *{details_txt}*")
     # Always show b
     lines.append(f"**Liquidity (b-value):** `{b_val}`")
-    # Only show Subject if non-empty
+    # Only show subject if non-empty
     subject_txt = m.get("subject")
     if subject_txt:
         lines.append(f"**Subject:** {subject_txt}")
@@ -486,6 +486,10 @@ async def details(interaction: discord.Interaction, id: str):
     lines.append(f"**Shares:** {yes_shares:.4f} `YES` / {no_shares:.4f} `NO`")
     lines.append(f"**Volume:** ${volume:.2f}")
     lines.append(f"**Last trade:** {last_trade}")
+    # Only show resolution_date if non-empty
+    resolution_date = m.get("resolution_date")
+    if resolution_date:
+        lines.append(f"**Resolved:** *{resolution_date}*")
     # Send the assembled message
     await interaction.response.send_message(
         "\n".join(lines),
@@ -815,6 +819,49 @@ async def send(
         ),
         ephemeral=True,
         view=view
+    )
+
+
+# /resolve
+@bot.tree.command(
+    name="resolve",
+    description="Admin: resolve a market and payout winners"
+)
+@app_commands.describe(
+    id="Market ID to resolve",
+    outcome="Winning side: Y or N"
+)
+async def resolve_market(
+    interaction: discord.Interaction,
+    id: str,
+    outcome: Literal["Y","N"]
+):
+    # Admin guard
+    if interaction.user.id != ADMIN_ID:
+        return await interaction.response.send_message("❌ No permission.", ephemeral=True)
+
+    correct = "YES" if outcome.upper() == "Y" else "NO"
+    try:
+        question, implied, total_paid, total_lost = await data.resolve_market(id, correct)
+    except ValueError as e:
+        return await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+
+    # Public broadcast
+    await broadcasts.broadcast_resolution(
+        client           = interaction.client,
+        market_id        = id,
+        market_name      = question,
+        correct_side     = correct,
+        implied_odds     = implied,
+        total_paid       = total_paid,
+        total_lost_shares= total_lost
+    )
+
+    # Send confirmation to admin
+    await interaction.response.send_message(
+        f"🔔 Market `{id}` resolved as `{correct}`.\n"
+        f"Paid out **${total_paid:.2f}**. Losers forfeited **{total_lost:.2f}** shares.",
+        ephemeral=True
     )
 
 

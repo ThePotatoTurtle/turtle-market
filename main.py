@@ -831,18 +831,25 @@ async def send(
 )
 @app_commands.describe(
     id="Market ID to resolve",
-    outcome="Winning side: Y or N"
+    outcome="Winning side: Y, N, or H for 50/50"
 )
 async def resolve_market(
     interaction: discord.Interaction,
     id: str,
-    outcome: Literal["Y","N"]
+    outcome: Literal["Y","N","H"]
 ):
     # Admin guard
     if interaction.user.id != ADMIN_ID:
         return await interaction.response.send_message("❌ No permission.", ephemeral=True)
 
-    correct = "YES" if outcome.upper() == "Y" else "NO"
+    o = outcome.upper()
+    if o == "Y":
+        correct = "YES"
+    elif o == "N":
+        correct = "NO"
+    else:
+        correct = "HALF"
+        
     try:
         question, implied, total_paid, total_lost = await data.resolve_market(id, correct)
     except ValueError as e:

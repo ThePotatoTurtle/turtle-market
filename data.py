@@ -311,11 +311,16 @@ async def resolve_market(market_id: str, correct: str) -> tuple[str, float, floa
         )
         total_paid = 0.0
         total_lost  = 0.0
+
         async for user_id, outcome, shares in cur:
-            redeemed = shares if outcome == correct else 0.0
-            total_paid += redeemed
-            if outcome != correct:
-                total_lost += shares
+            # HALF case: pay out $0.50 to everyone
+            if correct == "HALF":
+                redeemed = 0.5 * shares
+            else:
+                redeemed = shares if outcome == correct else 0.0
+                total_paid += redeemed
+                if outcome != correct:
+                    total_lost += shares
 
             # Credit winner (or credit $0 for losers)
             await db.execute(

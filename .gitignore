@@ -10,3 +10,6 @@ venv/
 
 # Database
 data.db
+
+# Visual Studio
+.vs/

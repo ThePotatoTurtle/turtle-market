@@ -271,7 +271,8 @@ async def resolve_market(market_id: str, correct: str) -> tuple[str, float, floa
     """
     Atomically resolves a market:
       • Marks it resolved in market_data
-      • Credits $1 per correct share to each user
+      • Credits users with (shares * redemption_rate) after 5% fee
+      • Debits the AMM for total payouts
       • Logs each resolution
     Returns (question, implied_odds, total_paid, total_lost_shares).
     Raises ValueError on missing or already-resolved market.
@@ -313,14 +314,19 @@ async def resolve_market(market_id: str, correct: str) -> tuple[str, float, floa
         total_lost  = 0.0
 
         async for user_id, outcome, shares in cur:
-            # HALF case: pay out $0.50 to everyone
+            # Calculate redemption amount
             if correct == "HALF":
-                redeemed = 0.5 * shares
+                # HALF case: pay out $0.50 per share, minus 5% fee
+                gross_redemption = 0.5 * shares
             else:
-                redeemed = shares if outcome == correct else 0.0
-                total_paid += redeemed
+                # Normal case: winning outcome gets $1/share, losers get $0
+                gross_redemption = shares if outcome == correct else 0.0
                 if outcome != correct:
                     total_lost += shares
+            
+            # Apply 5% redemption fee
+            redeemed = gross_redemption * (1 - config.REDEEM_FEE)
+            total_paid += redeemed
 
             # Credit winner (or credit $0 for losers)
             await db.execute(
@@ -336,6 +342,14 @@ async def resolve_market(market_id: str, correct: str) -> tuple[str, float, floa
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (user_id, market_id, outcome, shares, redeemed, ts)
             )
+
+        # Debit the AMM for total payouts
+        await db.execute(
+            "UPDATE user_balances "
+            "SET balance = balance - ? "
+            "WHERE user_id = ?",
+            (total_paid, config.POOL_ID)
+        )
 
         # Commit once
         await db.commit()

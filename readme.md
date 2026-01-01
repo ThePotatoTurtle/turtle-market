@@ -88,7 +88,7 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 | Variable                       | Description                                              |
 | -------------------------------|--------------------------------------------------------- |
 | `.env.ADMIN_ID`                | **Your Discord user ID (only you can admin markets)**    |
-| `.env.DISCORD_TOKEN`           | ** Bot token from the Discord Developer Portal**         |
+| `.env.DISCORD_TOKEN`           | **Bot token from the Discord Developer Portal**          |
 | `config.DEFAULT_USER_BALANCE`  | Starting balance for users                               |
 | `config.POOL_ID`               | ID string representing the AMM pool                      |
 | `config.DEFAULT_B`             | Default LMSR **b** liquidity parameter (default `25.0`)  |

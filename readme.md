@@ -6,21 +6,21 @@ A lightweight, Discord-based prediction market platform for small groups. Powere
 
 ## 🚀 Features
 
-- **Create Markets**: `/create_market` lets admins set up new YES/NO markets with custom market IDs, bet topic, details and bet conditions, optional subject-lock, and LMSR liquidity parameter **b**.
-- **View Markets**: `/markets` lists all active markets. `/resolved` lists markets already resolved. `/details <id>` shows more information about specific markets. 
+- **Create Markets**: `/create_market` lets admins set up new YES/NO markets with custom market IDs, bet topic, details and conditions, and LMSR liquidity parameter **b**.
+- **View Markets**: `/markets` lists all active markets. `/resolved` lists markets already resolved. `/details <id>` shows more information about a specific market. 
 - **Trade**:
-  - **Buy**: `/buy <id> <Y|N> <amount>` spends dollars to purchase shares from the market (AMM).
-  - **Sell**: `/sell <id> <Y|N> <percent>` sells a percentage of your holding back to the market (AMM).
-- **Portfolio & Cash**:
+  - **Buy**: `/buy <id> <Y|N> <amount>` spends dollars to purchase YES/NO shares from the market (AMM).
+  - **Sell**: `/sell <id> <Y|N> <percent>` sells a percentage of your YES/NO shares back to the market (AMM).
+- **Portfolio**:
   - `/cash` shows your current cash balance.
   - `/port` shows cash, open bets, and total portfolio value.
-- **Transfers**: `/send <@user> <amount>` allows users to send cash to each other. Admins can `/deposit` and `/withdraw` to top up or withdraw funds.
-- **Resolution**: Admins run `/resolve <id> <Y|N>` to resolve a market. Winners get \$1 per share, losers get \$0.
+- **Transfers**: Admins can `/deposit` and `/withdraw` to top up or withdraw funds, respectively. `/send <@user> <amount>` allows users to send cash to each other. 
+- **Resolution**: Admins run `/resolve <id> <Y|H|N>` to resolve a market. Winners get \$1 per share, losers get \$0.
 - **Help**: `/help` displays all non-admin commands.
 
 ---
 
-## 📐 How It Works: LMSR AMM
+## 📐 LMSR AMM
 
 LMSR provides continuous pricing via a convex cost function, avoiding order books. Key formulas:
 
@@ -49,7 +49,7 @@ LMSR provides continuous pricing via a convex cost function, avoiding order book
 
    by returning Δq shares.
 
-This design ensures **instant liquidity**, **bounded loss**, and **smooth price adjustments** as volume grows.
+This design ensures **instant liquidity**, **bounded loss for the MM**, and **smooth price changes** even for erratic markets.
 
 ---
 
@@ -58,7 +58,6 @@ This design ensures **instant liquidity**, **bounded loss**, and **smooth price 
 1. **Clone the repo**
    ```bash
    git clone https://github.com/ThePotatoTurtle/turtle-market.git
-   cd turtle-market
    ```
 2. **Create a Python virtual environment**
    ```bash
@@ -71,8 +70,12 @@ This design ensures **instant liquidity**, **bounded loss**, and **smooth price 
    pip install -r requirements.txt
    ```
 4. **Configure**
-   - Copy `.env.example` to `.env` and set your Discord `DEV_GUILD_ID`, `ADMIN_ID`, `DISCORD_TOKEN`.
-   - In `config.py`, set `MARKETS_CHANNEL_ID` and `BROADCAST_CHANNEL_ID` for public broadcasts, `POOL_ID` (default `'AMM'`), `DEFAULT_B` for default b-value, and `REDEEM_FEE` for redemption fee.
+   - Create an `.env` file with the following (see ⚙️ Configuration below)
+   ```
+   DISCORD_TOKEN=
+   ADMIN_ID=
+   ```
+   - In `config.py`, set the mandatory variables `BROADCAST_CHANNEL_ID` and `MARKETS_CHANNEL_ID`, as well as any optional variables.
 5. **Run the bot**
    ```bash
    python main.py
@@ -84,14 +87,14 @@ This design ensures **instant liquidity**, **bounded loss**, and **smooth price 
 
 | Variable                       | Description                                              |
 | -------------------------------|--------------------------------------------------------- |
-| `DEV_GUILD_ID`                 | (Optional) Guild ID for command registration in dev only |
-| `ADMIN_ID`                     | Your Discord user ID (only you can admin markets)        |
-| `DISCORD_TOKEN`                | Bot token from the Discord Developer Portal              |
-| `config.BROADCAST_CHANNEL_ID`  | Channel ID for broadcasting trades                       |
-| `config.MARKETS_CHANNEL_ID`    | Channel ID for broadcasting new markets & resolution     |
-| `config.POOL_ID`               | User ID string representing the AMM pool                 |
-| `config.DEFAULT_B`             | Default LMSR **b** liquidity parameter (e.g. `25.0`)     |
-| `config.REDEEM_FEE`            | Fractional fee (e.g. `0.01` for 1%) on redemption        |
+| **`.env.ADMIN_ID`              | Your Discord user ID (only you can admin markets)  **    |
+| **`.env.DISCORD_TOKEN`         | Bot token from the Discord Developer Portal**            |
+| `config.DEFAULT_USER_BALANCE`  | Starting balance for users                               |
+| `config.POOL_ID`               | ID string representing the AMM pool                      |
+| `config.DEFAULT_B`             | Default LMSR **b** liquidity parameter (default `25.0`)  |
+| `config.REDEEM_FEE`            | Redemption fee (default `0.05` for 5%)                   |
+| **`config.BROADCAST_CHANNEL_ID`| Channel ID for broadcasting trades**                     |
+| **`config.MARKETS_CHANNEL_ID`  | Channel ID for broadcasting new markets & resolutions**  |
 
 ---
 
@@ -99,22 +102,22 @@ This design ensures **instant liquidity**, **bounded loss**, and **smooth price 
 
 ### User Commands (public)
 
-- `/markets` — list active markets (ID, question, implied odds of YES)
-- `/details <id>` — show full market info
+- `/markets` — list active markets (ID, question, implied odds)
+- `/details <id>` — show detailed info on a market
 - `/buy <id> <Y|N> <amount>` — buy YES/NO shares by dollar amount
-- `/sell <id> <Y|N> <percent>` — sell percentage of your position
+- `/sell <id> <Y|N> <percent>` — sell percentage of your YES/NO shares
 - `/cash` — view your cash balance
 - `/port` — view your portfolio
 - `/send <@user> <amount>` — transfer cash to another user
 - `/resolved` — list all resolved markets
 - `/help` — list public commands and descriptions
 
-### Admin Commands (prefix: **Admin:**\* )
+### Admin Commands
 
 - `/create_market` — create a new market
 - `/delete_market` — delete a market
-- `/deposit` — credit a use
+- `/deposit` — credit a user
 - `/withdraw` — debit a user
-- `/resolve <id> <Y|N>` — resolve and pay out a market
+- `/resolve <id> <Y|H|N>` — resolve and pay out a market
 
 ---

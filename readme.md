@@ -87,14 +87,14 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 
 | Variable                       | Description                                              |
 | -------------------------------|--------------------------------------------------------- |
-| **`.env.ADMIN_ID`              | Your Discord user ID (only you can admin markets)  **    |
-| **`.env.DISCORD_TOKEN`         | Bot token from the Discord Developer Portal**            |
+| `.env.ADMIN_ID`                | **Your Discord user ID (only you can admin markets)**    |
+| `.env.DISCORD_TOKEN`           | ** Bot token from the Discord Developer Portal**         |
 | `config.DEFAULT_USER_BALANCE`  | Starting balance for users                               |
 | `config.POOL_ID`               | ID string representing the AMM pool                      |
 | `config.DEFAULT_B`             | Default LMSR **b** liquidity parameter (default `25.0`)  |
 | `config.REDEEM_FEE`            | Redemption fee (default `0.05` for 5%)                   |
-| **`config.BROADCAST_CHANNEL_ID`| Channel ID for broadcasting trades**                     |
-| **`config.MARKETS_CHANNEL_ID`  | Channel ID for broadcasting new markets & resolutions**  |
+| `config.BROADCAST_CHANNEL_ID`  | **Channel ID for broadcasting trades**                   |
+| `config.MARKETS_CHANNEL_ID`    | **Channel ID for broadcasting new markets & resolutions**|
 
 ---
 

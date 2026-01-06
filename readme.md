@@ -70,7 +70,7 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
    pip install -r requirements.txt
    ```
 4. **Configure**
-   - Create an `.env` file with the following (see ⚙️ Configuration below)
+   - Create an `.env` file with the following (see "Configuration" below)
    ```
    DISCORD_TOKEN=
    ADMIN_ID=

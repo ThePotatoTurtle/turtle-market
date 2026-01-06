@@ -4,7 +4,7 @@ A lightweight, Discord-based prediction market platform for small groups. Powere
 
 ---
 
-## 🚀 Features
+## Features
 
 - **Create Markets**: `/create_market` lets admins set up new YES/NO markets with custom market IDs, bet topic, details and conditions, and LMSR liquidity parameter **b**.
 - **View Markets**: `/markets` lists all active markets. `/resolved` lists markets already resolved. `/details <id>` shows more information about a specific market. 
@@ -20,7 +20,7 @@ A lightweight, Discord-based prediction market platform for small groups. Powere
 
 ---
 
-## 📐 LMSR AMM
+## LMSR AMM
 
 LMSR provides continuous pricing via a convex cost function, avoiding order books. Key formulas:
 
@@ -53,7 +53,7 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 
 ---
 
-## 🛠 Installation & Setup
+## Installation & Setup
 
 1. **Clone the repo**
    ```bash
@@ -83,7 +83,7 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 | Variable                       | Description                                              |
 | -------------------------------|--------------------------------------------------------- |
@@ -98,7 +98,7 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 
 ---
 
-## 📋 Command Reference
+## Commands
 
 ### User Commands (public)
 

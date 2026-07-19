@@ -47,7 +47,7 @@ async def on_ready():
 # Confirmation view for /delete_market
 class DeleteConfirmView(View):
     def __init__(self, market_id: str):
-        # timeout=None → buttons never expire
+        # Buttons expire after 60 seconds
         super().__init__(timeout=60)
         self.market_id = market_id
 
@@ -518,6 +518,13 @@ async def buy(interaction: discord.Interaction, id: str, side: Literal["Y","N"],
         return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
     if m['resolved']:
         return await interaction.response.send_message(f"❌ Market `{id}` is already resolved.", ephemeral=True)
+    # Subject guard: the market's subject cannot bet on their own market.
+    # Subject is stored as a mention ("<@1234...>") or bare ID; compare digits only.
+    subject_id = "".join(ch for ch in (m.get('subject') or "") if ch.isdigit())
+    if subject_id and subject_id == user_id:
+        return await interaction.response.send_message(
+            f"❌ You are the subject of `{id}` and cannot bet on it.", ephemeral=True
+        )
     bal = await data.get_balance(user_id)
     if amount<=0 or amount>bal:
         return await interaction.response.send_message(f"❌ Invalid amount. You have ${bal:.2f}.", ephemeral=True)
@@ -638,32 +645,26 @@ async def port(interaction: discord.Interaction):
     bets = bets_dict.get(user_id, {})
     markets = await data.load_markets()
 
-    # Compute total bet value and build lines, skip missing or resolved markets
-    total_bet_val=0
-    lines = [
-    "Market         | Side |   Shares    |    Value    |   Unrealiz. Profit",
-    "---------------|------|-------------|-------------|--------------------"
-    ]
-    for mid,pos in bets.items():
-        m=markets.get(mid)
+    # Compute total bet value and build table rows, skip missing or resolved markets
+    total_bet_val = 0
+    rows = []
+    for mid, pos in bets.items():
+        m = markets.get(mid)
         if not m or m['resolved']: continue
         # Current marginal price for YES
-        p_yes=lmsr.lmsr_price(m['shares']['YES'],m['shares']['NO'],m['b'])
+        p_yes = lmsr.lmsr_price(m['shares']['YES'], m['shares']['NO'], m['b'])
         # For each position owned:
-        for outcome, market in pos.items():
-            shares = market.get('shares', 0)
+        for outcome, position in pos.items():
+            shares = position.get('shares', 0)
             if shares <= 0:
-                continue    
+                continue
             # Calculate current values of each position and append to open bets
             price = p_yes if outcome == "YES" else (1 - p_yes)
             value = shares * price
-            cost_basis = market.get('cost_basis', 0)
+            cost_basis = position.get('cost_basis', 0)
             profit = value - cost_basis
             total_bet_val += value
-            side_label = "YES" if outcome == "YES" else "NO"
-            lines.append(
-            f"{mid:<14} | {side_label:<4} | {shares:11.4f} | ${value:10.2f} | ${profit:17.2f}"
-            )
+            rows.append(f"{mid:<10} {outcome:<4} {shares:8.2f} {value:7.2f} {profit:+7.2f}")
 
     # Totals
     total = bal + total_bet_val
@@ -673,14 +674,15 @@ async def port(interaction: discord.Interaction):
         f"📈 Open bets: **${total_bet_val:.2f}**\n"
         f"🔖 Total portfolio: **${total:.2f}**"
     )
-    # Build response
-    if not lines:
-        body = "You have no open bets."
+    # Build response (compact table sized to fit mobile-width code blocks)
+    if rows:
+        table_header = f"{'Market':<10} {'Side':<4} {'Shares':>8} {'Value':>7} {'P/L':>7}"
+        body = "```\n" + "\n".join([table_header, "-" * len(table_header)] + rows) + "\n```"
     else:
-        table = "```\n" + "\n".join(lines) + "\n```"
+        body = "You have no open bets."
 
     await interaction.response.send_message(
-        content=f"{header}\n\nOpen Bets (FORMATTING SCREWED UP ON MOBILE, FIX PENDING):\n{table}",
+        content=f"{header}\n\nOpen Bets ($):\n{body}",
         ephemeral=True
     )
 

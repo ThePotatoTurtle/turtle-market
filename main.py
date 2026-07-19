@@ -901,10 +901,10 @@ async def list_resolved(interaction: discord.Interaction):
 # /graph
 @bot.tree.command(
     name="graph",
-    description="Generate odds-over-time graphs for a market, or ALL active markets"
+    description="Generate odds-over-time graphs for a market, ALL active markets, or RESOLVED markets"
 )
 @app_commands.describe(
-    id="Market ID (works for resolved markets too), or ALL for every active market"
+    id="Market ID, ALL for every active market, or RESOLVED for every resolved market"
 )
 async def graph(interaction: discord.Interaction, id: str):
     # Optional admin gate
@@ -916,6 +916,14 @@ async def graph(interaction: discord.Interaction, id: str):
         targets = [(mid, m) for mid, m in markets.items() if not m['resolved']]
         if not targets:
             return await interaction.response.send_message("No active markets.", ephemeral=True)
+    elif id.upper() == "RESOLVED":
+        # All resolved markets, oldest market first (ISO dates sort lexicographically)
+        targets = sorted(
+            ((mid, m) for mid, m in markets.items() if m['resolved']),
+            key=lambda kv: kv[1]['created_at'] or ''
+        )
+        if not targets:
+            return await interaction.response.send_message("No resolved markets.", ephemeral=True)
     else:
         m = markets.get(id)
         if not m:
@@ -939,7 +947,7 @@ async def graph(interaction: discord.Interaction, id: str):
 @graph.autocomplete("id")
 async def graph_id_autocomplete(interaction: discord.Interaction, current: str):
     markets = await data.load_markets()
-    options = ["ALL"] + sorted(markets.keys())
+    options = ["ALL", "RESOLVED"] + sorted(markets.keys())
     current = current.lower()
     return [
         app_commands.Choice(name=opt, value=opt)

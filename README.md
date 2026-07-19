@@ -15,7 +15,7 @@ A lightweight, Discord-based prediction market platform for small groups. Powere
   - `/bal` shows your current cash balance.
   - `/port` shows cash, open bets, and total portfolio value.
 - **Transfers**: Admins can `/deposit` and `/withdraw` to top up or withdraw funds, respectively. `/send <@user> <amount>` allows users to send cash to each other. 
-- **Graphs**: `/graph <id|ALL>` generates odds-over-time graphs — one per active market for `ALL`, or a single market by ID (including resolved markets). Graphs are saved to `graphs/`.
+- **Graphs**: `/graph <id|ALL|RESOLVED>` generates odds-over-time graphs — one per market for `ALL` (active) or `RESOLVED` (resolved, oldest first), or a single market by ID. Graphs are saved to `graphs/`.
 - **Resolution**: Admins run `/resolve <id> <Y|H|N>` to resolve a market. Winners get \$1 per share, losers get \$0.
 - **Help**: `/help` displays all non-admin commands.
 
@@ -114,7 +114,7 @@ Requires **Python 3.11+**.
 - `/port` — view your portfolio
 - `/send <@user> <amount>` — transfer cash to another user
 - `/resolved` — list all resolved markets
-- `/graph <id|ALL>` — odds-over-time graph for one market (or all active markets)
+- `/graph <id|ALL|RESOLVED>` — odds-over-time graph for one market, all active, or all resolved markets
 - `/help` — list public commands and descriptions
 
 ### Admin Commands

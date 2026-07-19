@@ -26,6 +26,25 @@ async def init_db():
     # Execute entire schema in one transaction
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(schema_sql)
+
+        # Migration: add created_at to market_info on databases created before
+        # the column existed (CREATE TABLE IF NOT EXISTS won't alter them).
+        cur = await db.execute("PRAGMA table_info(market_info)")
+        cols = [row[1] for row in await cur.fetchall()]
+        if 'created_at' not in cols:
+            await db.execute("ALTER TABLE market_info ADD COLUMN created_at TEXT")
+        # Backfill missing creation dates with the market's first trade time
+        # (best available proxy), then its resolution date (zero-trade resolved
+        # markets), falling back to now. Idempotent.
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        await db.execute(
+            "UPDATE market_info SET created_at = COALESCE("
+            " (SELECT MIN(t.timestamp) FROM trades t WHERE t.market_id = market_info.market_id),"
+            " (SELECT d.resolution_date FROM market_data d WHERE d.market_id = market_info.market_id),"
+            " ?)"
+            " WHERE created_at IS NULL",
+            (now,)
+        )
         await db.commit()
 
 
@@ -51,10 +70,11 @@ async def create_market(
             if await cur.fetchone():
                 raise ValueError(f"Market ID '{market_id}' already exists")
         # Begin transaction
+        created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         await db.execute(
-            "INSERT INTO market_info(market_id, question, details, b, subject, creator_id)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (market_id, question, details, b, subject, creator_id)
+            "INSERT INTO market_info(market_id, question, details, b, subject, creator_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (market_id, question, details, b, subject, creator_id, created_at)
         )
         await db.execute(
             "INSERT INTO market_data(market_id) VALUES (?)",
@@ -70,7 +90,7 @@ async def load_markets() -> Dict[str, Dict[str, Any]]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT i.market_id, i.question, i.details, i.b, i.subject, i.creator_id,"
+            "SELECT i.market_id, i.question, i.details, i.b, i.subject, i.creator_id, i.created_at,"
             " d.yes_shares, d.no_shares, d.resolved, d.resolution, d.resolution_date,"
             " d.implied_odds, d.last_trade, d.volume_traded"
             " FROM market_info i"
@@ -85,6 +105,7 @@ async def load_markets() -> Dict[str, Dict[str, Any]]:
                 'b':               row['b'],
                 'subject':         row['subject'],
                 'creator':         row['creator_id'],
+                'created_at':      row['created_at'],
                 'shares': {
                     'YES': row['yes_shares'],
                     'NO':  row['no_shares']
@@ -240,6 +261,21 @@ async def log_trade(user_id: str, market_id: str, outcome: str, shares: float, a
             (amount, user_id)
         )
         await db.commit()
+
+async def load_market_trades(market_id: str) -> list[tuple[str, float, str]]:
+    """
+    Load a market's full trade history in execution order.
+    Returns a list of (outcome, shares, timestamp) tuples, where shares is
+    signed (positive = buy, negative = sell). Used to replay LMSR state
+    for odds-history graphs.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT outcome, shares, timestamp FROM trades"
+            " WHERE market_id = ? ORDER BY id",
+            (market_id,)
+        )
+        return [tuple(row) for row in await cursor.fetchall()]
 
 async def log_resolve(user_id: str, market_id: str, outcome: str, shares: float, redeemed: float) -> None:
     """

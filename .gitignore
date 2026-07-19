@@ -12,5 +12,8 @@ venv/
 # Database
 data.db
 
+# Generated graphs
+graphs/
+
 # Visual Studio
 .vs/

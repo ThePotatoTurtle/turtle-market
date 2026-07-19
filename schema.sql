@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS market_info (
     details         TEXT,
     b               REAL    NOT NULL,
     subject         TEXT,
-    creator_id      TEXT
+    creator_id      TEXT,
+    created_at      TEXT       -- ISO-8601 string
 );
 
 -- 2. Market data (shares, status, etc.)

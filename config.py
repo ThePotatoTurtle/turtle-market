@@ -6,3 +6,4 @@ DEFAULT_B = 100.0                              # Default LMSR b-parameter for ma
 REDEEM_FEE = 0.05                              # Fee for redeeming shares (x100%)
 BROADCAST_CHANNEL_ID = 1385842381454311464     # Channel where all trade announcements go
 MARKETS_CHANNEL_ID = 1385842235140210718       # Channel where all market announcements go
+GRAPH_ADMIN_ONLY = False                       # If True, only the admin can use /graph

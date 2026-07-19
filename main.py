@@ -1,11 +1,11 @@
-import os, datetime
+import os, asyncio, datetime
 from typing import Optional, Literal
 import discord
 from discord import app_commands
 from discord.ui import View, button
 from discord import ButtonStyle
 from dotenv import load_dotenv
-import config, lmsr, data, broadcasts
+import config, lmsr, data, broadcasts, graphs
 
 
 # Load .env
@@ -896,6 +896,55 @@ async def list_resolved(interaction: discord.Interaction):
             "No resolved markets.", ephemeral=True
         )
     await interaction.response.send_message("🏁 Resolved markets:\n" + "\n".join(lines), ephemeral=True)
+
+
+# /graph
+@bot.tree.command(
+    name="graph",
+    description="Generate odds-over-time graphs for a market, or ALL active markets"
+)
+@app_commands.describe(
+    id="Market ID (works for resolved markets too), or ALL for every active market"
+)
+async def graph(interaction: discord.Interaction, id: str):
+    # Optional admin gate
+    if config.GRAPH_ADMIN_ONLY and interaction.user.id != ADMIN_ID:
+        return await interaction.response.send_message("❌ No permission.", ephemeral=True)
+
+    markets = await data.load_markets()
+    if id.upper() == "ALL":
+        targets = [(mid, m) for mid, m in markets.items() if not m['resolved']]
+        if not targets:
+            return await interaction.response.send_message("No active markets.", ephemeral=True)
+    else:
+        m = markets.get(id)
+        if not m:
+            return await interaction.response.send_message(f"❌ Market `{id}` not found.", ephemeral=True)
+        targets = [(id, m)]  # Single market: works for resolved markets too
+
+    # Rendering can take a moment (especially for ALL) — defer publicly
+    await interaction.response.defer()
+
+    # Generate and send one graph per message
+    for mid, m in targets:
+        trades = await data.load_market_trades(mid)
+        # Render off the event loop so the bot stays responsive
+        path = await asyncio.to_thread(graphs.render_market_graph, mid, m, trades)
+        filename = os.path.basename(path)
+        embed = discord.Embed(title=f"📊 `{mid}` — odds history")
+        embed.set_image(url=f"attachment://{filename}")
+        await interaction.followup.send(embed=embed, file=discord.File(path, filename=filename))
+
+
+@graph.autocomplete("id")
+async def graph_id_autocomplete(interaction: discord.Interaction, current: str):
+    markets = await data.load_markets()
+    options = ["ALL"] + sorted(markets.keys())
+    current = current.lower()
+    return [
+        app_commands.Choice(name=opt, value=opt)
+        for opt in options if current in opt.lower()
+    ][:25]
 
 
 # /help

@@ -56,6 +56,8 @@ This design ensures **instant liquidity**, **bounded loss for the MM**, and **sm
 
 ## Installation & Setup
 
+Requires **Python 3.11+**.
+
 1. **Clone the repo**
    ```bash
    git clone https://github.com/ThePotatoTurtle/turtle-market.git
